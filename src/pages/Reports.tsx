@@ -36,6 +36,48 @@ const Reports = () => {
   const status = queryParams.get('status');
   const date = queryParams.get('date');
   
+  // Inicializar gráficos vazios ao iniciar componente
+  useEffect(() => {
+    initializeEmptyGraphData();
+  }, [period]);
+  
+  // Função para inicializar os gráficos com estrutura vazia
+  const initializeEmptyGraphData = () => {
+    // Dados para gráfico de meses
+    const emptyMonthlyData: any[] = [];
+    const monthsCount = parseInt(period);
+    for (let i = monthsCount; i >= 0; i--) {
+      const date = subMonths(new Date(), i);
+      const monthYear = format(date, 'MMM yyyy', { locale: ptBR });
+      emptyMonthlyData.push({
+        month: monthYear,
+        revenue: 0
+      });
+    }
+    setDocumentData(emptyMonthlyData);
+    
+    // Dados para gráfico de tipos de documentos
+    setDocumentTypeData([
+      { type: 'NF-e', count: 0 },
+      { type: 'NFC-e', count: 0 },
+      { type: 'NFS-e', count: 0 }
+    ]);
+    
+    // Dados para gráfico de status
+    setDocumentStatusData([
+      { status: 'Pendente', count: 0 },
+      { status: 'Autorizada', count: 0 },
+      { status: 'Cancelada', count: 0 }
+    ]);
+    
+    // Dados para gráfico de receita por tipo
+    setRevenueByDocumentType([
+      { type: 'NF-e', revenue: 0 },
+      { type: 'NFC-e', revenue: 0 },
+      { type: 'NFS-e', revenue: 0 }
+    ]);
+  };
+  
   useEffect(() => {
     // Set initial tab based on query params
     if (source === 'fiscal_documents') {
@@ -102,10 +144,7 @@ const Reports = () => {
       // Verificar se organizationId existe
       if (!organizationId) {
         console.warn("ID da organização não encontrado");
-        setDocumentData([]);
-        setDocumentTypeData([]);
-        setDocumentStatusData([]);
-        setRevenueByDocumentType([]);
+        initializeEmptyGraphData(); // Garantir que os gráficos vazios são exibidos
         setHasDocumentData(false);
         setLoading(false);
         return;
@@ -541,45 +580,6 @@ const Reports = () => {
     );
   };
 
-  // Inicializar arrays vazios com estrutura básica para os gráficos
-  useEffect(() => {
-    if (!hasDocumentData) {
-      // Criar dados vazios para os gráficos de meses
-      const emptyMonthlyData: any[] = [];
-      const months = parseInt(period);
-      for (let i = months; i >= 0; i--) {
-        const date = subMonths(new Date(), i);
-        const monthYear = format(date, 'MMM yyyy', { locale: ptBR });
-        emptyMonthlyData.push({
-          month: monthYear,
-          revenue: 0
-        });
-      }
-      setDocumentData(emptyMonthlyData);
-      
-      // Criar dados vazios para os gráficos de tipo de documento
-      setDocumentTypeData([
-        { type: 'NF-e', count: 0 },
-        { type: 'NFC-e', count: 0 },
-        { type: 'NFS-e', count: 0 }
-      ]);
-      
-      // Criar dados vazios para os gráficos de status
-      setDocumentStatusData([
-        { status: 'Pendente', count: 0 },
-        { status: 'Autorizada', count: 0 },
-        { status: 'Cancelada', count: 0 }
-      ]);
-      
-      // Criar dados vazios para receita por tipo
-      setRevenueByDocumentType([
-        { type: 'NF-e', revenue: 0 },
-        { type: 'NFC-e', revenue: 0 },
-        { type: 'NFS-e', revenue: 0 }
-      ]);
-    }
-  }, [hasDocumentData, period]);
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -717,122 +717,143 @@ const Reports = () => {
         <TabsContent value="documents" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Document Revenue Chart */}
-            <EmptyChartWrapper 
-              title="Receita Mensal por Documentos Fiscais" 
-              description="Valor total de documentos fiscais por mês no período selecionado"
-              data={documentData}
-              >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={documentData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis
-                    tickFormatter={(value) => `R$ ${value}`}
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
-                  />
-                  <Legend />
-                  <Bar dataKey="revenue" fill="#4f46e5" name="Valor Total" />
-                </BarChart>
-              </ResponsiveContainer>
-            </EmptyChartWrapper>
+            <Card className="col-span-full">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Receita Mensal por Documentos Fiscais</CardTitle>
+                  <CardDescription>Valor total de documentos fiscais por mês no período selecionado</CardDescription>
+                </div>
+                <FileText className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={documentData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis
+                      tickFormatter={(value) => `R$ ${value}`}
+                      domain={[0, 10]}
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
+                    />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#4f46e5" name="Valor Total" minPointSize={5} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
             
             {/* Document Type Distribution */}
-            <EmptyChartWrapper
-              title="Distribuição por Tipo"
-              description="Documentos fiscais por tipo no período selecionado"
-              data={documentTypeData}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={documentTypeData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => (percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : "")}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                    nameKey="type"
-                  >
-                    {documentTypeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [value, 'Quantidade']} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </EmptyChartWrapper>
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribuição por Tipo</CardTitle>
+                <CardDescription>Documentos fiscais por tipo no período selecionado</CardDescription>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={documentTypeData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={0}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={1}
+                      dataKey="count"
+                      nameKey="type"
+                      minAngle={15}
+                      labelLine={true}
+                      label={({ name }) => name}
+                    >
+                      {documentTypeData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#000" strokeWidth={0.5} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [value, 'Quantidade']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
             
             {/* Document Status Distribution */}
-            <EmptyChartWrapper
-              title="Distribuição por Status"
-              description="Documentos fiscais por status no período selecionado"
-              data={documentStatusData}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={documentStatusData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => (percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : "")}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                    nameKey="status"
-                  >
-                    {documentStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [value, 'Quantidade']} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </EmptyChartWrapper>
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribuição por Status</CardTitle>
+                <CardDescription>Documentos fiscais por status no período selecionado</CardDescription>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={documentStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={0}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={1}
+                      dataKey="count"
+                      nameKey="status"
+                      minAngle={15}
+                      labelLine={true}
+                      label={({ name }) => name}
+                    >
+                      {documentStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#000" strokeWidth={0.5} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [value, 'Quantidade']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
             
             {/* Revenue by Document Type */}
-            <EmptyChartWrapper
-              title="Valor Total por Tipo de Documento"
-              description="Valor total emitido por tipo de documento no período"
-              data={revenueByDocumentType}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={revenueByDocumentType}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="type" />
-                  <YAxis
-                    tickFormatter={(value) => `R$ ${value}`}
-                  />
-                  <Tooltip 
-                    formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
-                  />
-                  <Legend />
-                  <Bar dataKey="revenue" fill="#10b981" name="Valor Total" />
-                </BarChart>
-              </ResponsiveContainer>
-            </EmptyChartWrapper>
+            <Card className="col-span-full">
+              <CardHeader>
+                <CardTitle>Valor Total por Tipo de Documento</CardTitle>
+                <CardDescription>Valor total emitido por tipo de documento no período</CardDescription>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={revenueByDocumentType}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="type" />
+                    <YAxis
+                      tickFormatter={(value) => `R$ ${value}`}
+                      domain={[0, 10]}
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
+                    />
+                    <Legend />
+                    <Bar dataKey="revenue" fill="#10b981" name="Valor Total" minPointSize={5} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
