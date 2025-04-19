@@ -25,6 +25,7 @@ const Reports = () => {
   const [documentStatusData, setDocumentStatusData] = useState<any[]>([]);
   const [revenueByDocumentType, setRevenueByDocumentType] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('services');
+  const [hasDocumentData, setHasDocumentData] = useState(false);
   const { organizationId, loading: orgLoading } = useOrganization();
   
   // Get query parameters
@@ -105,6 +106,7 @@ const Reports = () => {
         setDocumentTypeData([]);
         setDocumentStatusData([]);
         setRevenueByDocumentType([]);
+        setHasDocumentData(false);
         setLoading(false);
         return;
       }
@@ -160,70 +162,8 @@ const Reports = () => {
               organization_id: organizationId
             }));
           } else {
-            // Se não encontrar em nenhuma tabela, usar dados mockados
-            const currentDate = new Date();
-            const previousMonth = new Date(currentDate);
-            previousMonth.setMonth(previousMonth.getMonth() - 1);
-            
-            documentsData = [
-              {
-                id: "1",
-                number: "NF-00001",
-                type: "nf",
-                status: "authorized",
-                customer_id: "cus_1",
-                customer_name: "Empresa ABC Ltda",
-                issue_date: currentDate.toISOString(),
-                total_value: 1250.50,
-                created_at: currentDate.toISOString(),
-                updated_at: currentDate.toISOString(),
-                organization_id: organizationId
-              },
-              {
-                id: "2",
-                number: "NFCe-00001",
-                type: "nfce",
-                status: "authorized",
-                customer_id: "cus_2",
-                customer_name: "Maria Silva",
-                issue_date: previousMonth.toISOString(),
-                total_value: 189.90,
-                created_at: previousMonth.toISOString(),
-                updated_at: previousMonth.toISOString(),
-                organization_id: organizationId
-              },
-              {
-                id: "3",
-                number: "NFS-00001",
-                type: "nfs",
-                status: "pending",
-                customer_id: "cus_3",
-                customer_name: "João Pereira",
-                issue_date: currentDate.toISOString(),
-                total_value: 350.00,
-                created_at: currentDate.toISOString(),
-                updated_at: currentDate.toISOString(),
-                organization_id: organizationId
-              },
-              {
-                id: "4",
-                number: "NF-00002",
-                type: "nf",
-                status: "canceled",
-                customer_id: "cus_4",
-                customer_name: "Distribuidora XYZ",
-                issue_date: previousMonth.toISOString(),
-                total_value: 2750.00,
-                created_at: previousMonth.toISOString(),
-                updated_at: previousMonth.toISOString(),
-                organization_id: organizationId
-              }
-            ];
-            
-            toast({
-              title: "Modo Demonstração",
-              description: "Exibindo dados de demonstração para relatórios fiscais.",
-            });
+            // Não exibir dados mockados, deixar vazio
+            documentsData = [];
           }
         }
       }
@@ -256,23 +196,14 @@ const Reports = () => {
         processDocumentTypeData(filteredData);
         processDocumentStatusData(filteredData);
         processRevenueByDocumentType(filteredData);
-        
-        toast({
-          title: 'Relatórios carregados',
-          description: `${filteredData.length} documentos fiscais incluídos nos relatórios.`
-        });
+        setHasDocumentData(true);
       } else {
-        toast({
-          title: 'Sem dados',
-          description: 'Não foram encontrados documentos fiscais para o período e filtros selecionados.',
-          variant: 'destructive'
-        });
-        
         // Inicializar os gráficos com dados vazios
         setDocumentData([]);
         setDocumentTypeData([]);
         setDocumentStatusData([]);
         setRevenueByDocumentType([]);
+        setHasDocumentData(false);
       }
     } catch (error) {
       console.error('Error fetching document report data:', error);
@@ -287,6 +218,7 @@ const Reports = () => {
       setDocumentTypeData([]);
       setDocumentStatusData([]);
       setRevenueByDocumentType([]);
+      setHasDocumentData(false);
     } finally {
       setLoading(false);
     }
@@ -559,6 +491,95 @@ const Reports = () => {
     }, 1500);
   };
 
+  // Componente para exibir quando não há dados
+  const NoDataMessage = () => (
+    <div className="flex flex-col items-center justify-center h-64 text-center">
+      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+      <h3 className="text-lg font-medium">Nenhum documento encontrado</h3>
+      <p className="text-sm text-muted-foreground max-w-md mt-2">
+        Não há documentos fiscais cadastrados para esta organização. 
+        Cadastre documentos fiscais para visualizar os relatórios.
+      </p>
+    </div>
+  );
+
+  // Componente de gráfico com mensagem quando vazio
+  const EmptyChartWrapper = ({ children, title, description, data }: { 
+    children: React.ReactNode, 
+    title: string, 
+    description: string,
+    data: any[]
+  }) => {
+    const isEmpty = !data || data.length === 0 || (
+      data.some(item => 'revenue' in item) && data.every(item => item.revenue === 0)
+    ) || (
+      data.some(item => 'count' in item) && data.every(item => item.count === 0)
+    );
+    
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          <FileText className="h-5 w-5 text-muted-foreground" />
+        </CardHeader>
+        <CardContent className="h-80 relative">
+          {children}
+          {isEmpty && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <div className="text-center p-4 bg-background/80 rounded-md shadow">
+                <p className="text-muted-foreground">
+                  Sem dados para exibir
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Inicializar arrays vazios com estrutura básica para os gráficos
+  useEffect(() => {
+    if (!hasDocumentData) {
+      // Criar dados vazios para os gráficos de meses
+      const emptyMonthlyData: any[] = [];
+      const months = parseInt(period);
+      for (let i = months; i >= 0; i--) {
+        const date = subMonths(new Date(), i);
+        const monthYear = format(date, 'MMM yyyy', { locale: ptBR });
+        emptyMonthlyData.push({
+          month: monthYear,
+          revenue: 0
+        });
+      }
+      setDocumentData(emptyMonthlyData);
+      
+      // Criar dados vazios para os gráficos de tipo de documento
+      setDocumentTypeData([
+        { type: 'NF-e', count: 0 },
+        { type: 'NFC-e', count: 0 },
+        { type: 'NFS-e', count: 0 }
+      ]);
+      
+      // Criar dados vazios para os gráficos de status
+      setDocumentStatusData([
+        { status: 'Pendente', count: 0 },
+        { status: 'Autorizada', count: 0 },
+        { status: 'Cancelada', count: 0 }
+      ]);
+      
+      // Criar dados vazios para receita por tipo
+      setRevenueByDocumentType([
+        { type: 'NF-e', revenue: 0 },
+        { type: 'NFC-e', revenue: 0 },
+        { type: 'NFS-e', revenue: 0 }
+      ]);
+    }
+  }, [hasDocumentData, period]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -696,133 +717,122 @@ const Reports = () => {
         <TabsContent value="documents" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Document Revenue Chart */}
-            <Card className="col-span-full">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Receita Mensal por Documentos Fiscais</CardTitle>
-                  <CardDescription>Valor total de documentos fiscais por mês no período selecionado</CardDescription>
-                </div>
-                <FileText className="h-5 w-5 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={documentData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis
-                      tickFormatter={(value) => `R$ ${value}`}
-                    />
-                    <Tooltip 
-                      formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
-                    />
-                    <Legend />
-                    <Bar dataKey="revenue" fill="#4f46e5" name="Valor Total" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <EmptyChartWrapper 
+              title="Receita Mensal por Documentos Fiscais" 
+              description="Valor total de documentos fiscais por mês no período selecionado"
+              data={documentData}
+              >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={documentData}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis
+                    tickFormatter={(value) => `R$ ${value}`}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
+                  />
+                  <Legend />
+                  <Bar dataKey="revenue" fill="#4f46e5" name="Valor Total" />
+                </BarChart>
+              </ResponsiveContainer>
+            </EmptyChartWrapper>
             
             {/* Document Type Distribution */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Distribuição por Tipo</CardTitle>
-                <CardDescription>Documentos fiscais por tipo no período selecionado</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={documentTypeData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
-                      nameKey="type"
-                    >
-                      {documentTypeData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [value, 'Quantidade']} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <EmptyChartWrapper
+              title="Distribuição por Tipo"
+              description="Documentos fiscais por tipo no período selecionado"
+              data={documentTypeData}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={documentTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => (percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : "")}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                    nameKey="type"
+                  >
+                    {documentTypeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [value, 'Quantidade']} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </EmptyChartWrapper>
             
             {/* Document Status Distribution */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Distribuição por Status</CardTitle>
-                <CardDescription>Documentos fiscais por status no período selecionado</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={documentStatusData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
-                      nameKey="status"
-                    >
-                      {documentStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [value, 'Quantidade']} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <EmptyChartWrapper
+              title="Distribuição por Status"
+              description="Documentos fiscais por status no período selecionado"
+              data={documentStatusData}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={documentStatusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => (percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : "")}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                    nameKey="status"
+                  >
+                    {documentStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [value, 'Quantidade']} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </EmptyChartWrapper>
             
             {/* Revenue by Document Type */}
-            <Card className="col-span-full">
-              <CardHeader>
-                <CardTitle>Valor Total por Tipo de Documento</CardTitle>
-                <CardDescription>Valor total emitido por tipo de documento no período</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={revenueByDocumentType}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="type" />
-                    <YAxis
-                      tickFormatter={(value) => `R$ ${value}`}
-                    />
-                    <Tooltip 
-                      formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
-                    />
-                    <Legend />
-                    <Bar dataKey="revenue" fill="#10b981" name="Valor Total" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <EmptyChartWrapper
+              title="Valor Total por Tipo de Documento"
+              description="Valor total emitido por tipo de documento no período"
+              data={revenueByDocumentType}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={revenueByDocumentType}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="type" />
+                  <YAxis
+                    tickFormatter={(value) => `R$ ${value}`}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Valor Total']}
+                  />
+                  <Legend />
+                  <Bar dataKey="revenue" fill="#10b981" name="Valor Total" />
+                </BarChart>
+              </ResponsiveContainer>
+            </EmptyChartWrapper>
           </div>
         </TabsContent>
       </Tabs>
