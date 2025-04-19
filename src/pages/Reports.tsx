@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import { useLocation } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
+import { useOrganization } from '@/hooks/useOrganization';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -24,6 +25,7 @@ const Reports = () => {
   const [documentStatusData, setDocumentStatusData] = useState<any[]>([]);
   const [revenueByDocumentType, setRevenueByDocumentType] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('services');
+  const { organizationId, loading: orgLoading } = useOrganization();
   
   // Get query parameters
   const location = useLocation();
@@ -39,25 +41,38 @@ const Reports = () => {
       setActiveTab('documents');
     }
     
-    // Carrega os dados com base na aba ativa
-    if (activeTab === 'documents') {
-      fetchDocumentData();
-    } else {
-      fetchData();
+    // Carrega os dados com base na aba ativa apenas quando a organização estiver carregada
+    if (!orgLoading) {
+      if (activeTab === 'documents') {
+        fetchDocumentData();
+      } else {
+        fetchData();
+      }
     }
-  }, [period, source, activeTab]);
+  }, [period, source, activeTab, organizationId, orgLoading]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Verificar se organizationId existe
+      if (!organizationId) {
+        console.warn("ID da organização não encontrado");
+        setServiceData([]);
+        setStatusData([]);
+        setServiceTypeData([]);
+        setLoading(false);
+        return;
+      }
+      
       // Calculate date range based on selected period
       const endDate = new Date();
       const startDate = subMonths(endDate, parseInt(period));
       
-      // Fetch services within the date range
+      // Fetch services within the date range and filter by organization_id
       const { data, error } = await supabase
         .from('services')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: true });
@@ -83,6 +98,17 @@ const Reports = () => {
   const fetchDocumentData = async () => {
     setLoading(true);
     try {
+      // Verificar se organizationId existe
+      if (!organizationId) {
+        console.warn("ID da organização não encontrado");
+        setDocumentData([]);
+        setDocumentTypeData([]);
+        setDocumentStatusData([]);
+        setRevenueByDocumentType([]);
+        setLoading(false);
+        return;
+      }
+      
       // Calculate date range based on selected period
       const endDate = new Date();
       const startDate = subMonths(endDate, parseInt(period));
@@ -93,6 +119,7 @@ const Reports = () => {
       const { data: docs1, error: error1 } = await supabase
         .from('documentos')
         .select('*')
+        .eq('organization_id', organizationId)
         .gte('issue_date', startDate.toISOString())
         .lte('issue_date', endDate.toISOString());
       
@@ -103,6 +130,7 @@ const Reports = () => {
         const { data: docs2, error: error2 } = await supabase
           .from('documentos_fiscais')
           .select('*')
+          .eq('organization_id', organizationId)
           .gte('issue_date', startDate.toISOString())
           .lte('issue_date', endDate.toISOString());
         
@@ -113,6 +141,7 @@ const Reports = () => {
           const { data: docs3, error: error3 } = await supabase
             .from('documents')
             .select('*')
+            .eq('organization_id', organizationId)
             .order('date', { ascending: true });
           
           if (!error3 && docs3 && docs3.length > 0) {
@@ -127,7 +156,8 @@ const Reports = () => {
               issue_date: doc.date,
               total_value: doc.value,
               created_at: doc.date,
-              updated_at: doc.date
+              updated_at: doc.date,
+              organization_id: organizationId
             }));
           } else {
             // Se não encontrar em nenhuma tabela, usar dados mockados
@@ -146,7 +176,8 @@ const Reports = () => {
                 issue_date: currentDate.toISOString(),
                 total_value: 1250.50,
                 created_at: currentDate.toISOString(),
-                updated_at: currentDate.toISOString()
+                updated_at: currentDate.toISOString(),
+                organization_id: organizationId
               },
               {
                 id: "2",
@@ -158,7 +189,8 @@ const Reports = () => {
                 issue_date: previousMonth.toISOString(),
                 total_value: 189.90,
                 created_at: previousMonth.toISOString(),
-                updated_at: previousMonth.toISOString()
+                updated_at: previousMonth.toISOString(),
+                organization_id: organizationId
               },
               {
                 id: "3",
@@ -170,7 +202,8 @@ const Reports = () => {
                 issue_date: currentDate.toISOString(),
                 total_value: 350.00,
                 created_at: currentDate.toISOString(),
-                updated_at: currentDate.toISOString()
+                updated_at: currentDate.toISOString(),
+                organization_id: organizationId
               },
               {
                 id: "4",
@@ -182,7 +215,8 @@ const Reports = () => {
                 issue_date: previousMonth.toISOString(),
                 total_value: 2750.00,
                 created_at: previousMonth.toISOString(),
-                updated_at: previousMonth.toISOString()
+                updated_at: previousMonth.toISOString(),
+                organization_id: organizationId
               }
             ];
             
