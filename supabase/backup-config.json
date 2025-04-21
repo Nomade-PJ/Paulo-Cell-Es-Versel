@@ -1,0 +1,14 @@
+{
+  "_comment": "Este arquivo contém uma cópia do estado original das configurações de redirecionamento de e-mail do Supabase",
+  "backup_date": "2025-04-20",
+  "auth": {
+    "site_url": "https://kpfxdnvngsvckuubyhic.supabase.co",
+    "redirect_urls": {
+      "confirmation": "",
+      "recovery": "",
+      "invite": "",
+      "email_change": "",
+      "magic_link": ""
+    }
+  }
+} 
