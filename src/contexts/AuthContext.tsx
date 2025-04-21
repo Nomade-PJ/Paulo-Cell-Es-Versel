@@ -32,6 +32,8 @@ interface AuthContextProps {
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
+  sendMagicLink: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -254,7 +256,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email, 
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
           data: {
             name: name,
           }
@@ -289,6 +291,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const sendPasswordResetEmail = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      
+      if (error) throw error;
+      
+      toast.success("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+    } catch (error: any) {
+      console.error("Erro ao enviar e-mail de recuperação:", error);
+      toast.error("Erro ao enviar e-mail de recuperação: " + error.message);
+      throw error;
+    }
+  };
+
+  const sendMagicLink = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/magic-link`,
+        },
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Link mágico enviado! Verifique seu e-mail.");
+    } catch (error: any) {
+      console.error("Erro ao enviar link mágico:", error);
+      toast.error("Erro ao enviar link mágico: " + error.message);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -307,6 +344,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     logout,
     refreshProfile,
+    sendPasswordResetEmail,
+    sendMagicLink,
   };
 
   return (

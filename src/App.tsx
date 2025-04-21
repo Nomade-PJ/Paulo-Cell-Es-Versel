@@ -21,6 +21,9 @@ import DeviceRegistration from "./pages/DeviceRegistration";
 import ServiceRegistration from "./pages/ServiceRegistration";
 import LandingPage from "./pages/LandingPage";
 import PublicServiceStatus from "./pages/PublicServiceStatus";
+import PasswordReset from "./pages/auth/PasswordReset";
+import ConfirmRegistration from "./pages/auth/ConfirmRegistration";
+import MagicLink from "./pages/auth/MagicLink";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,7 +46,10 @@ const App = () => (
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               
-              {/* Rota pública para acompanhamento de status */}
+              <Route path="/auth/reset-password" element={<PasswordReset />} />
+              <Route path="/auth/confirm" element={<ConfirmRegistration />} />
+              <Route path="/auth/magic-link" element={<MagicLink />} />
+              
               <Route path="/status/:serviceId" element={<PublicServiceStatus />} />
               
               <Route path="/dashboard" element={<Layout />}>
@@ -64,7 +70,6 @@ const App = () => (
                 <Route path="settings" element={<Settings />} />
               </Route>
               
-              {/* Redirecionar rotas antigas para as novas */}
               <Route path="/clients" element={<Navigate to="/dashboard/clients" replace />} />
               <Route path="/devices" element={<Navigate to="/dashboard/devices" replace />} />
               <Route path="/services" element={<Navigate to="/dashboard/services" replace />} />

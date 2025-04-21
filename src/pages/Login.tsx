@@ -38,7 +38,8 @@ import {
   Eye, 
   EyeOff, 
   User, 
-  ShieldCheck 
+  ShieldCheck,
+  LinkIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,11 +60,23 @@ const signupSchema = z.object({
   path: ["confirmPassword"]
 });
 
+// Schema para validação do formulário de recuperação de senha
+const resetPasswordSchema = z.object({
+  email: z.string().email({ message: "E-mail inválido" })
+});
+
+// Schema para validação do formulário de link mágico
+const magicLinkSchema = z.object({
+  email: z.string().email({ message: "E-mail inválido" })
+});
+
 type LoginForm = z.infer<typeof loginSchema>;
 type SignupForm = z.infer<typeof signupSchema>;
+type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
+type MagicLinkForm = z.infer<typeof magicLinkSchema>;
 
 const Login = () => {
-  const { login, signup, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated, sendPasswordResetEmail, sendMagicLink } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
@@ -74,6 +87,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [animateCard, setAnimateCard] = useState(false);
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [magicLinkDialogOpen, setMagicLinkDialogOpen] = useState(false);
 
   // Efeito para animar o card quando o componente montar
   useEffect(() => {
@@ -101,6 +116,20 @@ const Login = () => {
       email: "",
       password: "",
       confirmPassword: ""
+    }
+  });
+
+  const resetPasswordForm = useForm<ResetPasswordForm>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      email: ""
+    }
+  });
+
+  const magicLinkForm = useForm<MagicLinkForm>({
+    resolver: zodResolver(magicLinkSchema),
+    defaultValues: {
+      email: ""
     }
   });
 
@@ -140,6 +169,32 @@ const Login = () => {
       setAdminPasswordError("");
     } else {
       setAdminPasswordError("Senha administrativa incorreta");
+    }
+  };
+
+  const handleResetPassword = async (values: ResetPasswordForm) => {
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(values.email);
+      setResetPasswordDialogOpen(false);
+      resetPasswordForm.reset();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMagicLink = async (values: MagicLinkForm) => {
+    setIsLoading(true);
+    try {
+      await sendMagicLink(values.email);
+      setMagicLinkDialogOpen(false);
+      magicLinkForm.reset();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -271,7 +326,7 @@ const Login = () => {
                     </Button>
                   </form>
                 </Form>
-                <div className="text-center mt-2">
+                <div className="text-center mt-2 flex flex-col gap-1">
                   <Button 
                     variant="link" 
                     className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
@@ -404,6 +459,23 @@ const Login = () => {
                     </Button>
                   </form>
                 </Form>
+                <div className="flex justify-center items-center gap-2 text-sm text-slate-400">
+                  <Button 
+                    variant="link" 
+                    className="text-sm text-blue-400 hover:text-blue-300 hover:underline p-0 h-auto"
+                    onClick={() => setResetPasswordDialogOpen(true)}
+                  >
+                    Esqueceu a senha?
+                  </Button>
+                  <span>•</span>
+                  <Button 
+                    variant="link" 
+                    className="text-sm text-blue-400 hover:text-blue-300 hover:underline p-0 h-auto"
+                    onClick={() => setMagicLinkDialogOpen(true)}
+                  >
+                    Login com link mágico
+                  </Button>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -564,6 +636,164 @@ const Login = () => {
             >
               Fechar
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+        <DialogContent 
+          className="sm:max-w-md rounded-xl overflow-hidden"
+          style={{ 
+            background: 'rgba(15, 23, 42, 0.95)', 
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid rgba(59, 130, 246, 0.3)'
+          }}
+        >
+          <DialogHeader className="border-b border-slate-700/50 pb-4">
+            <DialogTitle className="text-xl text-white flex items-center">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-2">
+                <Lock className="h-4 w-4 text-blue-400" />
+              </div>
+              Recuperar Senha
+            </DialogTitle>
+            <DialogDescription className="text-slate-300 mt-2">
+              Digite seu e-mail para receber um link de recuperação de senha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Form {...resetPasswordForm}>
+              <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4">
+                <FormField
+                  control={resetPasswordForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
+                        <Mail className="h-4 w-4 mr-2 text-blue-400" />
+                        Email
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="seu@email.com" 
+                          type="email" 
+                          {...field} 
+                          className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700 hover:text-white rounded-md"
+                    >
+                      Cancelar
+                    </Button>
+                  </DialogClose>
+                  <Button 
+                    type="submit" 
+                    className="enter-button" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Enviando...
+                      </span>
+                    ) : (
+                      "Enviar Link"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Magic Link Dialog */}
+      <Dialog open={magicLinkDialogOpen} onOpenChange={setMagicLinkDialogOpen}>
+        <DialogContent 
+          className="sm:max-w-md rounded-xl overflow-hidden"
+          style={{ 
+            background: 'rgba(15, 23, 42, 0.95)', 
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid rgba(59, 130, 246, 0.3)'
+          }}
+        >
+          <DialogHeader className="border-b border-slate-700/50 pb-4">
+            <DialogTitle className="text-xl text-white flex items-center">
+              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center mr-2">
+                <LinkIcon className="h-4 w-4 text-purple-400" />
+              </div>
+              Link Mágico de Acesso
+            </DialogTitle>
+            <DialogDescription className="text-slate-300 mt-2">
+              Receba um link por e-mail para acessar o sistema sem senha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Form {...magicLinkForm}>
+              <form onSubmit={magicLinkForm.handleSubmit(handleMagicLink)} className="space-y-4">
+                <FormField
+                  control={magicLinkForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
+                        <Mail className="h-4 w-4 mr-2 text-purple-400" />
+                        Email
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="seu@email.com" 
+                          type="email" 
+                          {...field} 
+                          className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-purple-500 rounded-md h-11"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700 hover:text-white rounded-md"
+                    >
+                      Cancelar
+                    </Button>
+                  </DialogClose>
+                  <Button 
+                    type="submit" 
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-md" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Enviando...
+                      </span>
+                    ) : (
+                      "Enviar Link Mágico"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </div>
         </DialogContent>
       </Dialog>
