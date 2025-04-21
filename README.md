@@ -1,76 +1,68 @@
-# Welcome to your Lovable project
+# Sistema Paulo Cell 
 
-## Project info
+## Sobre o Projeto
 
-**URL**: https://lovable.dev/projects/d96b3d3b-e2df-4557-bb63-e4b171db47b7
+**Paulo Cell** é um sistema para gerenciamento de assistência técnica de celulares e outros dispositivos eletrônicos. Desenvolvido especificamente para atender às necessidades da loja Paulo Cell, o sistema facilita o controle de clientes, dispositivos, serviços e emissão de documentos fiscais.
 
-## How can I edit this code?
+## Repositório
 
-There are several ways of editing your application.
+**URL**: https://github.com/Nomade-PJ/Paulo-Cell-Es-Versel
 
-**Use Lovable**
+## Como Editar o Código
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d96b3d3b-e2df-4557-bb63-e4b171db47b7) and start prompting.
+### Trabalhando Localmente
 
-Changes made via Lovable will be committed automatically to this repo.
+Para trabalhar com o código em seu ambiente local, você precisa ter Node.js & npm instalados - [instalar com nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Siga estes passos:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Passo 1: Clone o repositório
+git clone https://github.com/Nomade-PJ/Paulo-Cell-Es-Versel.git
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Passo 2: Entre no diretório do projeto
+cd Paulo-Cell-Es-Versel
 
-# Step 3: Install the necessary dependencies.
+# Passo 3: Instale as dependências
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Passo 4: Inicie o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Editando Diretamente no GitHub
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Navegue até os arquivos desejados
+- Clique no botão "Edit" (ícone de lápis) no canto superior direito
+- Faça suas alterações e confirme as mudanças
 
-**Use GitHub Codespaces**
+### Usando GitHub Codespaces
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Acesse a página principal do repositório
+- Clique no botão "Code" (botão verde) próximo ao canto superior direito
+- Selecione a aba "Codespaces"
+- Clique em "New codespace" para iniciar um novo ambiente Codespace
+- Edite os arquivos diretamente no Codespace e faça commit e push das suas alterações quando terminar
 
-## What technologies are used for this project?
+## Tecnologias Utilizadas
 
-This project is built with:
+Este projeto é construído com:
 
 - Vite
 - TypeScript
 - React
+- Supabase (Backend/Autenticação/Banco de Dados)
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+## Funcionalidades Principais
 
-Simply open [Lovable](https://lovable.dev/projects/d96b3d3b-e2df-4557-bb63-e4b171db47b7) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- Cadastro e gerenciamento de clientes
+- Registro e acompanhamento de dispositivos
+- Controle de serviços técnicos
+- Sistema de autenticação com múltiplos métodos
+- Impressão de comprovantes e documentos
+- Dashboard com métricas importantes
 
 ## Deployment na Vercel
 
@@ -134,4 +126,10 @@ Após o deploy, você pode monitorar:
 - **Analytics**: No dashboard do projeto, acesse a aba "Analytics"
 - **Status**: No dashboard do projeto, veja o status geral do deploy
 
-Lembre-se que o plano gratuito da Vercel tem algumas limitações, mas é suficiente para este projeto com poucos usuários.
+## Suporte e Contribuição
+
+Este projeto é mantido por [Nomade-PJ](https://github.com/Nomade-PJ). Para suporte ou contribuições, entre em contato ou abra uma issue no GitHub.
+
+## Licença
+
+Todos os direitos reservados © 2024 Paulo Cell
