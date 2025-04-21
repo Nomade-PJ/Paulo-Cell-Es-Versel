@@ -1,0 +1,27 @@
+# Este arquivo configura os redirecionamentos para os templates de e-mail do Supabase
+
+# Configurações específicas da API do Supabase
+[auth]
+# URLs para redirecionamento de e-mail
+site_url = "https://kpfxdnvngsvckuubyhic.supabase.co" # URL base do seu projeto
+additional_redirect_urls = ["https://paulo-cell.vercel.app", "http://localhost:3000", "http://localhost:8080"] # URLs adicionais permitidas para redirecionamento
+enable_email_signup = true
+enable_email_autoconfirm = false
+
+# Configurações específicas para os templates de e-mail
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+# Redirecionamentos 
+[auth.redirect_urls]
+confirmation = "/auth/confirm" # URL para confirmação de registro
+recovery = "/auth/reset-password" # URL para recuperação de senha
+invite = "/auth/confirm" # URL para convites
+email_change = "/auth/confirm" # URL para mudança de e-mail
+magic_link = "/auth/magic-link" # URL para login com link mágico
+
+# Nota: 
+# Quando você quiser voltar à configuração anterior, basta remover este arquivo
+# ou comentar as configurações acima
