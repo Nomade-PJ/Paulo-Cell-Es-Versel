@@ -294,7 +294,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const sendPasswordResetEmail = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password##`,
+        redirectTo: `${window.location.origin}/auth/reset-password?source=email`,
       });
       
       if (error) throw error;
@@ -312,7 +312,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/magic-link##`,
+          emailRedirectTo: `${window.location.origin}/auth/magic-link?source=email`,
         },
       });
       
