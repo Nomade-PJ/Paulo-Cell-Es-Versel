@@ -2,8 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Devices from "./pages/Devices";
@@ -26,42 +25,6 @@ import PasswordReset from "./pages/auth/PasswordReset";
 import ConfirmRegistration from "./pages/auth/ConfirmRegistration";
 import MagicLink from "./pages/auth/MagicLink";
 
-// Componente para capturar e processar hash tokens
-const TokenHandler = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    // Verificar se existe um erro de token no hash da URL
-    if (location.hash && location.hash.includes('error=access_denied')) {
-      // Verificar se a URL contém indicações de redefinição de senha
-      if (location.hash.includes('otp_expired') || location.hash.includes('invalid')) {
-        // Redirecionar para a página de login com mensagem clara
-        navigate('/login?error=reset_link_expired');
-      }
-    }
-    
-    // Verificar se temos um hash token de autenticação para processar
-    if (location.hash && location.hash.includes('type=')) {
-      // Extrair os parâmetros do hash
-      const hashParams = new URLSearchParams(location.hash.substring(1));
-      const type = hashParams.get('type');
-      const token = hashParams.get('access_token');
-      
-      // Redirecionar para a página apropriada com os parâmetros preservados
-      if (type === 'recovery' && token) {
-        navigate(`/auth/reset-password?token=${token}&type=${type}`);
-      } else if (type === 'magiclink' && token) {
-        navigate(`/auth/magic-link?token=${token}&type=${type}`);
-      } else if (type === 'signup' && token) {
-        navigate(`/auth/confirm?token=${token}&type=${type}`);
-      }
-    }
-  }, [location, navigate]);
-
-  return null;
-};
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -79,7 +42,6 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <TokenHandler />
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
