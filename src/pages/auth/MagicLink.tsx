@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,26 +10,35 @@ export default function MagicLink() {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Obter o token da URL
-  const token = searchParams.get("token") || "";
+  // Extract token from URL - handles both search params and hash params
+  const getTokenFromUrl = () => {
+    // Check for token in search params
+    const tokenFromSearch = searchParams.get("token");
+    if (tokenFromSearch) return tokenFromSearch;
+    
+    // Check for token in hash (Supabase sometimes puts it in hash)
+    if (location.hash) {
+      const hashParams = new URLSearchParams(location.hash.substring(1));
+      return hashParams.get("token");
+    }
+    
+    return null;
+  };
+
+  const token = getTokenFromUrl();
   const type = searchParams.get("type") || "";
   
   useEffect(() => {
     const verifyMagicLink = async () => {
-      if (!token || type !== "magiclink") {
-        setError("Link inválido ou expirado. Por favor, solicite um novo link mágico.");
-        setIsProcessing(false);
-        return;
-      }
-
       try {
-        // Quando o usuário acessa esta página através do link mágico,
-        // o Supabase já processa o token automaticamente.
-        // Apenas verificamos a sessão e redirecionamos se estiver tudo certo.
+        // Verificar sessão diretamente, independente dos parâmetros da URL
         const { data, error } = await supabase.auth.getSession();
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
         if (data.session) {
           // Se a sessão existe, redirecionar para o dashboard
@@ -37,6 +46,12 @@ export default function MagicLink() {
             navigate("/dashboard");
           }, 1500);
         } else {
+          // Se não há sessão, verificar se temos dados de URL
+          if (!token) {
+            throw new Error("Link inválido ou expirado. Por favor, solicite um novo link mágico.");
+          }
+          
+          // Tentar processar o token se existir mas a sessão não foi estabelecida
           throw new Error("Não foi possível estabelecer uma sessão. Por favor, tente novamente.");
         }
       } catch (err: any) {
@@ -48,7 +63,7 @@ export default function MagicLink() {
     };
 
     verifyMagicLink();
-  }, [token, type, navigate]);
+  }, [token, navigate]);
 
   if (isProcessing) {
     return (
