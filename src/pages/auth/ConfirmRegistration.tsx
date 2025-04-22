@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,28 +11,47 @@ export default function ConfirmRegistration() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract token from URL - handles both search params and hash params
+  const getTokenFromUrl = () => {
+    // Check for token in search params
+    const tokenFromSearch = searchParams.get("token");
+    if (tokenFromSearch) return tokenFromSearch;
+    
+    // Check for token in hash (Supabase sometimes puts it in hash)
+    if (location.hash) {
+      const hashParams = new URLSearchParams(location.hash.substring(1));
+      return hashParams.get("token");
+    }
+    
+    return null;
+  };
 
   useEffect(() => {
-    const token = searchParams.get("token");
+    const token = getTokenFromUrl();
     const type = searchParams.get("type");
     
     const verifySignup = async () => {
-      if (!token || type !== "signup") {
-        setError("Link inválido ou expirado. Por favor, solicite um novo convite.");
-        setIsVerifying(false);
-        return;
-      }
-      
       try {
-        // A verificação do token é gerenciada automaticamente pelo supabase
-        // quando o usuário acessa o link. Verificamos o status apenas para feedback.
-        const { error } = await supabase.auth.getSession();
+        // Verificar sessão diretamente
+        const { data, error } = await supabase.auth.getSession();
         
         if (error) {
           throw error;
         }
         
-        setIsSuccess(true);
+        if (data.session) {
+          setIsSuccess(true);
+        } else {
+          // Se não tem sessão, verificar os parâmetros da URL
+          if (!token) {
+            throw new Error("Link inválido ou expirado. Por favor, solicite um novo convite.");
+          }
+          
+          // Ainda não temos sessão, mas temos um token - pode ser um erro temporário
+          throw new Error("Não foi possível confirmar seu registro. Por favor, tente novamente.");
+        }
       } catch (err: any) {
         console.error("Erro ao verificar registro:", err);
         setError(err.message || "Erro ao confirmar o registro. Por favor, tente novamente.");
@@ -42,7 +61,7 @@ export default function ConfirmRegistration() {
     };
     
     verifySignup();
-  }, [searchParams]);
+  }, [searchParams, location.hash]);
   
   // Redirecionar para login após alguns segundos se tudo der certo
   useEffect(() => {
