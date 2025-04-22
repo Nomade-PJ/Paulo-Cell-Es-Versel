@@ -1,3 +1,4 @@
+
 import React, { createContext, ReactNode, useState, useEffect, useContext } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabaseClient";
@@ -294,7 +295,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const sendPasswordResetEmail = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password?source=email`,
+        redirectTo: `${window.location.origin}/auth/reset-password##`,
       });
       
       if (error) throw error;
@@ -312,7 +313,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/magic-link?source=email`,
+          emailRedirectTo: `${window.location.origin}/auth/magic-link##`,
         },
       });
       
