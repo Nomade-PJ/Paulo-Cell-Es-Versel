@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -26,11 +26,27 @@ export default function PasswordReset() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Obter o token da URL
-  const token = searchParams.get("token") || "";
-  const email = searchParams.get("email") || "";
+  // Extract token from URL - handles both search params and hash params
+  const getTokenFromUrl = () => {
+    // Check for token in search params
+    const tokenFromSearch = searchParams.get("token");
+    if (tokenFromSearch) return tokenFromSearch;
+    
+    // Check for token in hash (Supabase sometimes puts it in hash)
+    if (location.hash) {
+      const hashParams = new URLSearchParams(location.hash.substring(1));
+      return hashParams.get("token");
+    }
+    
+    return null;
+  };
+
+  const token = getTokenFromUrl();
+  const type = searchParams.get("type") || "";
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -41,17 +57,37 @@ export default function PasswordReset() {
   });
 
   useEffect(() => {
-    if (!token || !email) {
-      setError("Link inválido ou expirado. Por favor, solicite um novo link de redefinição de senha.");
-    }
-  }, [token, email]);
+    // Check if we have an access token in the URL
+    const checkSession = async () => {
+      setIsLoading(true);
+      try {
+        // Attempt to get the session to check if the user is authenticated
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Erro ao verificar sessão:", error);
+          setError("Não foi possível verificar sua sessão. Por favor, solicite um novo link de redefinição de senha.");
+          return;
+        }
+        
+        if (!data.session) {
+          setError("Link inválido ou expirado. Por favor, solicite um novo link de redefinição de senha.");
+          return;
+        }
+        
+        // Session is valid, allow the user to reset password
+      } catch (err) {
+        console.error("Erro ao processar autenticação:", err);
+        setError("Ocorreu um erro durante a autenticação. Por favor, tente novamente.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+  }, []);
 
   const onSubmit = async (values: FormValues) => {
-    if (!token || !email) {
-      setError("Link inválido ou expirado. Por favor, solicite um novo link de redefinição de senha.");
-      return;
-    }
-
     setIsProcessing(true);
     setError(null);
 
@@ -78,6 +114,22 @@ export default function PasswordReset() {
       setIsProcessing(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">Verificando...</CardTitle>
+            <CardDescription>Estamos validando seu link de redefinição</CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center p-6">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (error) {
     return (
