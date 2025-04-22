@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,6 @@ type MagicLinkForm = z.infer<typeof magicLinkSchema>;
 const Login = () => {
   const { login, signup, isAuthenticated, sendPasswordResetEmail, sendMagicLink } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
@@ -90,20 +89,11 @@ const Login = () => {
   const [animateCard, setAnimateCard] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [magicLinkDialogOpen, setMagicLinkDialogOpen] = useState(false);
-  const [linkExpiredError, setLinkExpiredError] = useState<string | null>(null);
 
   // Efeito para animar o card quando o componente montar
   useEffect(() => {
     setAnimateCard(true);
-    
-    // Verificar se há erro de link expirado na URL
-    const error = searchParams.get('error');
-    if (error === 'reset_link_expired') {
-      setLinkExpiredError("O link de redefinição de senha expirou ou é inválido. Por favor, solicite um novo link.");
-      // Abrir o diálogo de redefinição de senha automaticamente
-      setResetPasswordDialogOpen(true);
-    }
-  }, [searchParams]);
+  }, []);
 
   // Se já estiver autenticado, redirecionar para a página inicial
   if (isAuthenticated) {
@@ -652,73 +642,80 @@ const Login = () => {
 
       {/* Password Reset Dialog */}
       <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Recuperar senha</DialogTitle>
-            <DialogDescription>
-              Informe seu e-mail para receber instruções de redefinição de senha.
+        <DialogContent 
+          className="sm:max-w-md rounded-xl overflow-hidden"
+          style={{ 
+            background: 'rgba(15, 23, 42, 0.95)', 
+            backdropFilter: 'blur(12px)',
+            borderBottom: '1px solid rgba(59, 130, 246, 0.3)'
+          }}
+        >
+          <DialogHeader className="border-b border-slate-700/50 pb-4">
+            <DialogTitle className="text-xl text-white flex items-center">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mr-2">
+                <Lock className="h-4 w-4 text-blue-400" />
+              </div>
+              Recuperar Senha
+            </DialogTitle>
+            <DialogDescription className="text-slate-300 mt-2">
+              Digite seu e-mail para receber um link de recuperação de senha.
             </DialogDescription>
           </DialogHeader>
-          
-          {linkExpiredError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md">
-              <p className="text-sm font-medium">{linkExpiredError}</p>
-            </div>
-          )}
-          
-          <Form {...resetPasswordForm}>
-            <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4">
-              <FormField
-                control={resetPasswordForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
-                      <Mail className="h-4 w-4 mr-2 text-blue-400" />
-                      Email
-                    </FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="seu@email.com" 
-                        type="email" 
-                        {...field} 
-                        className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
-                      />
-                    </FormControl>
-                    <FormMessage className="text-red-400 text-xs" />
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end gap-2">
-                <DialogClose asChild>
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    className="bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700 hover:text-white rounded-md"
-                  >
-                    Cancelar
-                  </Button>
-                </DialogClose>
-                <Button 
-                  type="submit" 
-                  className="enter-button" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Enviando...
-                    </span>
-                  ) : (
-                    "Enviar Link"
+          <div className="py-4">
+            <Form {...resetPasswordForm}>
+              <form onSubmit={resetPasswordForm.handleSubmit(handleResetPassword)} className="space-y-4">
+                <FormField
+                  control={resetPasswordForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
+                        <Mail className="h-4 w-4 mr-2 text-blue-400" />
+                        Email
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="seu@email.com" 
+                          type="email" 
+                          {...field} 
+                          className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
                   )}
-                </Button>
-              </div>
-            </form>
-          </Form>
+                />
+                <div className="flex justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="bg-slate-800 text-slate-200 hover:bg-slate-700 border-slate-700 hover:text-white rounded-md"
+                    >
+                      Cancelar
+                    </Button>
+                  </DialogClose>
+                  <Button 
+                    type="submit" 
+                    className="enter-button" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Enviando...
+                      </span>
+                    ) : (
+                      "Enviar Link"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
         </DialogContent>
       </Dialog>
 
