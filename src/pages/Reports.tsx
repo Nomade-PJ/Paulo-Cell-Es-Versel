@@ -3,9 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Download, RefreshCw, FileText } from 'lucide-react';
+import { Download, RefreshCw, FileText, Package2, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabaseClient';
-import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, subMonths, subDays, subHours, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useLocation } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -27,6 +27,13 @@ const Reports = () => {
   const [activeTab, setActiveTab] = useState('services');
   const [hasDocumentData, setHasDocumentData] = useState(false);
   const { organizationId, loading: orgLoading } = useOrganization();
+  
+  // Novo estado para o componente de Serviços Entregues
+  const [deliveredPeriod, setDeliveredPeriod] = useState('24h');
+  const [deliveredServicesData, setDeliveredServicesData] = useState<{
+    count: number;
+    totalValue: number;
+  }>({ count: 0, totalValue: 0 });
   
   // Get query parameters
   const location = useLocation();
@@ -93,6 +100,13 @@ const Reports = () => {
       }
     }
   }, [period, source, activeTab, organizationId, orgLoading]);
+
+  useEffect(() => {
+    // Atualiza os dados de serviços entregues quando mudar o período selecionado ou quando carregar dados
+    if (!orgLoading && activeTab === 'services') {
+      fetchDeliveredServices();
+    }
+  }, [deliveredPeriod, organizationId, orgLoading, activeTab]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -580,6 +594,66 @@ const Reports = () => {
     );
   };
 
+  // Nova função para buscar serviços entregues
+  const fetchDeliveredServices = async () => {
+    try {
+      // Verificar se organizationId existe
+      if (!organizationId) {
+        console.warn("ID da organização não encontrado");
+        setDeliveredServicesData({ count: 0, totalValue: 0 });
+        return;
+      }
+      
+      // Calcular o período de filtragem
+      let startDate = new Date();
+      switch (deliveredPeriod) {
+        case '24h':
+          startDate = subHours(new Date(), 24);
+          break;
+        case '7d':
+          startDate = subDays(new Date(), 7);
+          break;
+        case '1m':
+          startDate = subMonths(new Date(), 1);
+          break;
+        case '3m':
+          startDate = subMonths(new Date(), 3);
+          break;
+        default:
+          startDate = subHours(new Date(), 24);
+      }
+      
+      // Buscar serviços entregues no período selecionado
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('status', 'delivered')
+        .gte('updated_at', startDate.toISOString())
+        .lte('updated_at', new Date().toISOString());
+      
+      if (error) throw error;
+      
+      // Processar dados para o card de serviços entregues
+      const count = data?.length || 0;
+      const totalValue = data?.reduce((total, service) => total + (service.price || 0), 0) || 0;
+      
+      setDeliveredServicesData({
+        count,
+        totalValue
+      });
+      
+    } catch (error) {
+      console.error('Error fetching delivered services data:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar os dados de serviços entregues',
+        variant: 'destructive'
+      });
+      setDeliveredServicesData({ count: 0, totalValue: 0 });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -709,6 +783,56 @@ const Reports = () => {
                     <Bar dataKey="count" fill="#82ca9d" name="Quantidade" />
                   </BarChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            
+            {/* Novo componente: Serviços Entregues */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Serviços Entregues</CardTitle>
+                  <CardDescription>Quantidade e valor total de serviços entregues</CardDescription>
+                </div>
+                <Package2 className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-end mb-4">
+                  <Select
+                    value={deliveredPeriod}
+                    onValueChange={(value) => {
+                      setDeliveredPeriod(value);
+                      fetchDeliveredServices();
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Selecione o período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="24h">Últimas 24 horas</SelectItem>
+                      <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                      <SelectItem value="1m">Último mês</SelectItem>
+                      <SelectItem value="3m">Últimos 3 meses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                    <Package2 className="h-8 w-8 text-primary mb-2" />
+                    <p className="text-sm text-muted-foreground mb-1">Quantidade</p>
+                    <h3 className="text-3xl font-bold">{deliveredServicesData.count}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">serviços entregues</p>
+                  </div>
+                  
+                  <div className="flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
+                    <DollarSign className="h-8 w-8 text-primary mb-2" />
+                    <p className="text-sm text-muted-foreground mb-1">Valor Total</p>
+                    <h3 className="text-3xl font-bold">
+                      R$ {deliveredServicesData.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">receita gerada</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
