@@ -98,9 +98,37 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
         throw new Error('ID da organização não encontrado');
       }
       
+      // Base update data
+      const updateData: any = { 
+        status: newStatus, 
+        updated_at: new Date().toISOString() 
+      };
+      
+      // Set specific date fields based on status
+      const currentDate = new Date().toISOString();
+      
+      // Set status-specific date fields
+      switch (newStatus) {
+        case 'pending':
+          updateData.pending_date = currentDate;
+          break;
+        case 'in_progress':
+          updateData.in_progress_date = currentDate;
+          break;
+        case 'waiting_parts':
+          updateData.waiting_parts_date = currentDate;
+          break;
+        case 'completed':
+          updateData.completed_date = currentDate;
+          break;
+        case 'delivered':
+          updateData.delivery_date = currentDate;
+          break;
+      }
+      
       const { error } = await supabase
         .from("services")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', service.id)
         .eq('organization_id', organizationId);
         
@@ -345,6 +373,27 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
                     {service.devices ? `${service.devices.brand} ${service.devices.model}` : "Dispositivo não encontrado"}
                   </p>
                 </div>
+              </div>
+            </div>
+            
+            <div className="border-t pt-4">
+              <h4 className="font-medium">Histórico de Status</h4>
+              <div className="mt-2 space-y-1 text-sm">
+                {service.pending_date && (
+                  <p><span className="font-medium">Registrado como Pendente:</span> {formatDate(service.pending_date)}</p>
+                )}
+                {service.in_progress_date && (
+                  <p><span className="font-medium">Em Andamento desde:</span> {formatDate(service.in_progress_date)}</p>
+                )}
+                {service.waiting_parts_date && (
+                  <p><span className="font-medium">Aguardando Peças desde:</span> {formatDate(service.waiting_parts_date)}</p>
+                )}
+                {service.completed_date && (
+                  <p><span className="font-medium">Concluído em:</span> {formatDate(service.completed_date)}</p>
+                )}
+                {service.delivery_date && (
+                  <p><span className="font-medium">Entregue em:</span> {formatDate(service.delivery_date)}</p>
+                )}
               </div>
             </div>
             
