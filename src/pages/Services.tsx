@@ -26,11 +26,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { PageHeader } from "@/components/PageHeader";
-import { Wrench, Search, Plus } from "lucide-react";
+import { Wrench, Search, Plus, CalendarIcon, X } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabaseClient";
 import { useOrganization } from '@/hooks/useOrganization';
+import { format, isValid } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import ServiceActionsMenu from "@/components/ServiceActionsMenu";
 import BluetoothPrinterComponent from "@/components/BluetoothPrinter";
 
@@ -60,6 +68,8 @@ const Services = () => {
   const [statusFilter, setStatusFilter] = useState("all"); // Using "all" instead of empty string
   const [loading, setLoading] = useState(true);
   const { organizationId, loading: orgLoading } = useOrganization();
+  const [calendarDate, setCalendarDate] = useState(null);
+  const [showCalendarFilter, setShowCalendarFilter] = useState(false);
 
   // Fetch services on component mount
   useEffect(() => {
@@ -111,7 +121,7 @@ const Services = () => {
     }
   };
   
-  // Apply filters when search term or status filter changes
+  // Apply filters when search term, status filter, or calendar date changes
   useEffect(() => {
     let filtered = services;
     
@@ -128,8 +138,75 @@ const Services = () => {
       filtered = filtered.filter(service => service.status === statusFilter);
     }
     
+    // Apply calendar date filter 
+    if (calendarDate && isValid(calendarDate)) {
+      const selectedDate = format(calendarDate, 'yyyy-MM-dd');
+      filtered = filtered.filter(service => {
+        // Determine which date field to use based on status
+        let dateField = 'updated_at';
+        
+        // Use specific date fields based on service status or selected status filter
+        if (statusFilter !== 'all') {
+          // Use the date field corresponding to the filtered status
+          switch (statusFilter) {
+            case 'pending':
+              dateField = 'pending_date';
+              break;
+            case 'in_progress':
+              dateField = 'in_progress_date';
+              break;
+            case 'waiting_parts':
+              dateField = 'waiting_parts_date';
+              break;
+            case 'completed':
+              dateField = 'completed_date';
+              break;
+            case 'delivered':
+              dateField = 'delivery_date';
+              break;
+          }
+        } else {
+          // If no status filter, use the date field corresponding to the service's current status
+          switch (service.status) {
+            case 'pending':
+              dateField = 'pending_date';
+              break;
+            case 'in_progress':
+              dateField = 'in_progress_date';
+              break;
+            case 'waiting_parts':
+              dateField = 'waiting_parts_date';
+              break;
+            case 'completed':
+              dateField = 'completed_date';
+              break;
+            case 'delivered':
+              dateField = 'delivery_date';
+              break;
+          }
+        }
+        
+        // If the specific date field doesn't exist, fall back to updated_at
+        if (!service[dateField]) {
+          dateField = 'updated_at';
+        }
+        
+        // Skip if the required date field is still missing
+        if (!service[dateField]) return false;
+        
+        try {
+          const serviceDate = format(new Date(service[dateField]), 'yyyy-MM-dd');
+          return serviceDate === selectedDate;
+        } catch (e) {
+          // If there's an error parsing the date, skip this record
+          console.error(`Error parsing date for service ${service.id}:`, e);
+          return false;
+        }
+      });
+    }
+    
     setFilteredServices(filtered);
-  }, [searchTerm, statusFilter, services]);
+  }, [searchTerm, statusFilter, services, calendarDate]);
   
   // Format price as currency
   const formatCurrency = (value) => {
@@ -142,6 +219,12 @@ const Services = () => {
   // Handle service edit
   const handleEdit = (service) => {
     navigate(`/dashboard/service-registration/${service.customer_id}/${service.device_id}?serviceId=${service.id}`);
+  };
+  
+  // Clear date filter
+  const clearDateFilter = () => {
+    setCalendarDate(null);
+    setShowCalendarFilter(false);
   };
   
   // Render status badge with appropriate color
@@ -231,6 +314,47 @@ const Services = () => {
                 <SelectItem value="delivered">Entregue</SelectItem>
               </SelectContent>
             </Select>
+            
+            <div className="flex items-center gap-2">
+              <Popover open={showCalendarFilter} onOpenChange={setShowCalendarFilter}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className={`w-full sm:w-auto flex gap-2 ${calendarDate ? 'text-primary' : ''}`}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {calendarDate ? (
+                      format(calendarDate, "dd/MM/yyyy")
+                    ) : (
+                      "Filtrar por data"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={calendarDate}
+                    onSelect={date => {
+                      setCalendarDate(date);
+                      setShowCalendarFilter(false);
+                    }}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+              
+              {calendarDate && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={clearDateFilter}
+                  title="Limpar filtro de data"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
           
           <Button className="w-full sm:w-auto" onClick={() => navigate("/dashboard/user-registration")}>
@@ -250,6 +374,14 @@ const Services = () => {
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
+            <TableCaption>
+              {calendarDate && (
+                <div className="text-sm text-muted-foreground">
+                  Filtrando serviços por data: {format(calendarDate, "dd/MM/yyyy")}
+                  {statusFilter !== 'all' && ` (Status: ${statusNames[statusFilter]})`}
+                </div>
+              )}
+            </TableCaption>
             <TableBody>
               {loading ? (
                 <TableRow>
