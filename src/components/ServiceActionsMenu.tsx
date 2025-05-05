@@ -98,41 +98,25 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
         throw new Error('ID da organização não encontrado');
       }
       
-      // Base update data
-      const updateData: any = { 
-        status: newStatus, 
-        updated_at: new Date().toISOString() 
-      };
-      
-      // Set specific date fields based on status
-      const currentDate = new Date().toISOString();
-      
-      // Set status-specific date fields
-      switch (newStatus) {
-        case 'pending':
-          updateData.pending_date = currentDate;
-          break;
-        case 'in_progress':
-          updateData.in_progress_date = currentDate;
-          break;
-        case 'waiting_parts':
-          updateData.waiting_parts_date = currentDate;
-          break;
-        case 'completed':
-          updateData.completed_date = currentDate;
-          break;
-        case 'delivered':
-          updateData.delivery_date = currentDate;
-          break;
+      // Usar a função RPC para atualizar o status
+      const { data, error } = await supabase
+        .rpc('update_service_status', {
+          p_service_id: service.id,
+          p_organization_id: organizationId,
+          p_status: newStatus
+        });
+        
+      if (error) {
+        console.error("Erro detalhado:", error);
+        throw error;
       }
       
-      const { error } = await supabase
-        .from("services")
-        .update(updateData)
-        .eq('id', service.id)
-        .eq('organization_id', organizationId);
-        
-      if (error) throw error;
+      // Verificar se a operação foi bem-sucedida
+      if (!data || data.success === false) {
+        const errorMsg = data?.error || 'Falha ao atualizar o status';
+        console.error("Erro retornado pela função:", errorMsg);
+        throw new Error(errorMsg);
+      }
       
       const statusNames = {
         pending: "Pendente",
@@ -147,13 +131,24 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
         description: `O serviço agora está ${statusNames[newStatus as keyof typeof statusNames]}.`
       });
       
+      // Força a atualização da lista
       if (onUpdate) onUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating service status:', error);
+      
+      // Mensagem de erro mais detalhada
+      let errorMessage = "Ocorreu um erro ao atualizar o status do serviço.";
+      if (error?.message) {
+        errorMessage += ` Detalhes: ${error.message}`;
+      }
+      if (error?.code) {
+        errorMessage += ` (Código: ${error.code})`;
+      }
+      
       toast({
         variant: "destructive",
         title: "Erro ao atualizar",
-        description: "Ocorreu um erro ao atualizar o status do serviço."
+        description: errorMessage
       });
     }
   };
