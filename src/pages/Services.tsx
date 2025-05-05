@@ -145,50 +145,48 @@ const Services = () => {
         // Determine which date field to use based on status
         let dateField = 'updated_at';
         
+        // Função auxiliar para verificar se um campo de data existe
+        const hasField = (field: string) => service[field] && service[field] !== null;
+        
         // Use specific date fields based on service status or selected status filter
         if (statusFilter !== 'all') {
           // Use the date field corresponding to the filtered status
           switch (statusFilter) {
             case 'pending':
-              dateField = 'pending_date';
+              dateField = hasField('pending_date') ? 'pending_date' : 'updated_at';
               break;
             case 'in_progress':
-              dateField = 'in_progress_date';
+              dateField = hasField('in_progress_date') ? 'in_progress_date' : 'updated_at';
               break;
             case 'waiting_parts':
-              dateField = 'waiting_parts_date';
+              dateField = hasField('waiting_parts_date') ? 'waiting_parts_date' : 'updated_at';
               break;
             case 'completed':
-              dateField = 'completed_date';
+              dateField = hasField('completed_date') ? 'completed_date' : 'updated_at';
               break;
             case 'delivered':
-              dateField = 'delivery_date';
+              dateField = hasField('delivery_date') ? 'delivery_date' : 'updated_at';
               break;
           }
         } else {
           // If no status filter, use the date field corresponding to the service's current status
           switch (service.status) {
             case 'pending':
-              dateField = 'pending_date';
+              dateField = hasField('pending_date') ? 'pending_date' : 'updated_at';
               break;
             case 'in_progress':
-              dateField = 'in_progress_date';
+              dateField = hasField('in_progress_date') ? 'in_progress_date' : 'updated_at';
               break;
             case 'waiting_parts':
-              dateField = 'waiting_parts_date';
+              dateField = hasField('waiting_parts_date') ? 'waiting_parts_date' : 'updated_at';
               break;
             case 'completed':
-              dateField = 'completed_date';
+              dateField = hasField('completed_date') ? 'completed_date' : 'updated_at';
               break;
             case 'delivered':
-              dateField = 'delivery_date';
+              dateField = hasField('delivery_date') ? 'delivery_date' : 'updated_at';
               break;
           }
-        }
-        
-        // If the specific date field doesn't exist, fall back to updated_at
-        if (!service[dateField]) {
-          dateField = 'updated_at';
         }
         
         // Skip if the required date field is still missing
