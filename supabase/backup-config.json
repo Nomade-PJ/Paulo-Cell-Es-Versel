@@ -1,0 +1,15 @@
+{
+  "_comment": "Este arquivo contém uma cópia do estado original das configurações de redirecionamento de e-mail do Supabase",
+  "project_id": "kpfxdnvngsvckuubyhic",
+  "auth": {
+    "site_url": "https://paulo-cell.vercel.app",
+    "additional_redirect_urls": [],
+    "email": {
+      "enable_signup": true,
+      "double_confirm_changes": false,
+      "enable_confirmations": false
+    }
+  },
+  "backup_date": "2025-04-21",
+  "backup_notes": "Configuração original antes das atualizações do sistema de autenticação avançada"
+} 
