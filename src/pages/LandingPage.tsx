@@ -88,15 +88,21 @@ const LandingPage = () => {
       {/* Rodapé */}
       <footer className="w-full mt-8 text-center text-sm text-gray-300">
         <p>© 2025 Paulo Cell Sistema - Todos os direitos reservados</p>
-        <p className="mt-1 text-xs text-gray-400">
-          Sistema Desenvolvido por{" "}
+        <div className="mt-2 flex justify-center gap-4 text-xs">
           <button 
             onClick={() => setDeveloperContactOpen(true)}
             className="text-blue-400 hover:underline focus:outline-none"
           >
-            Nomade-PJ
+            Desenvolvido por Nomade-PJ
           </button>
-        </p>
+          <span className="text-gray-500">|</span>
+          <a 
+            href="/contato" 
+            className="text-blue-400 hover:underline focus:outline-none"
+          >
+            Nossa Assistência Técnica
+          </a>
+        </div>
       </footer>
 
       {/* Developer Contact Dialog */}

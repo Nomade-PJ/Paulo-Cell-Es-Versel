@@ -24,6 +24,9 @@ import PublicServiceStatus from "./pages/PublicServiceStatus";
 import PasswordReset from "./pages/auth/PasswordReset";
 import ConfirmRegistration from "./pages/auth/ConfirmRegistration";
 import MagicLink from "./pages/auth/MagicLink";
+import Contact from "./pages/Contact";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +48,9 @@ const App = () => (
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/contato" element={<Contact />} />
+              <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+              <Route path="/termos-de-uso" element={<TermsOfUse />} />
               
               <Route path="/auth/reset-password" element={<PasswordReset />} />
               <Route path="/auth/confirm" element={<ConfirmRegistration />} />
