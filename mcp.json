@@ -1,0 +1,3 @@
+{
+  "command": "npx -y @smithery/cli@latest install @smithery-ai/github --client cursor"
+} 
