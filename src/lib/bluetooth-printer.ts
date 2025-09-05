@@ -205,21 +205,50 @@ export const printServiceReceipt = async (serviceData: {
   paymentMethod?: string;
   observations?: string;
   warrantyInfo?: string;
+  companyInfo?: {
+    companyName?: string;
+    document?: string;
+    documentType?: string;
+    phone?: string;
+    address?: {
+      street?: string;
+      number?: string;
+      neighborhood?: string;
+      city?: string;
+      state?: string;
+      cep?: string;
+      complement?: string;
+    };
+  };
 }): Promise<void> => {
-  const header = `
-    PAULO CELL ASSISTÊNCIA TÉCNICA
-    ==============================
-  `;
-  
   const formatPrice = (price: number): string => {
     return price.toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     });
   };
+
+  // Montar informações da empresa de forma organizada
+  const companySection = serviceData.companyInfo ? `
+${serviceData.companyInfo.companyName}
+${serviceData.companyInfo.document ? `${serviceData.companyInfo.documentType?.toUpperCase() || 'DOC'}: ${serviceData.companyInfo.document}` : ''}
+Tel: ${serviceData.companyInfo.phone || '(98) 12345-6789'}
+
+${serviceData.companyInfo.address && (serviceData.companyInfo.address.street || serviceData.companyInfo.address.city) ? `${serviceData.companyInfo.address.street ? `${serviceData.companyInfo.address.street}${serviceData.companyInfo.address.number ? `, ${serviceData.companyInfo.address.number}` : ''}` : ''}${serviceData.companyInfo.address.complement ? ` - ${serviceData.companyInfo.address.complement}` : ''}
+${serviceData.companyInfo.address.neighborhood || ''}
+${serviceData.companyInfo.address.city && serviceData.companyInfo.address.state ? `${serviceData.companyInfo.address.city} - ${serviceData.companyInfo.address.state}` : ''}
+${serviceData.companyInfo.address.cep ? `CEP: ${serviceData.companyInfo.address.cep}` : ''}` : ''}
+
+==============================
+` : `
+PAULO CELL - ASSISTÊNCIA TÉCNICA
+Tel: (98) 12345-6789
+
+==============================
+`;
   
   const receipt = `
-${header}
+${companySection}
 COMPROVANTE DE SERVIÇO
 
 Data: ${serviceData.date}
@@ -237,7 +266,7 @@ ${serviceData.observations ? `\nObservações: ${serviceData.observations}` : ''
 
 ==============================
 Agradecemos a preferência!
-Tel: (98) 12345-6789
+${serviceData.companyInfo?.companyName || 'Paulo Cell - Assistência Técnica'}
   `;
   
   await printText(receipt, {

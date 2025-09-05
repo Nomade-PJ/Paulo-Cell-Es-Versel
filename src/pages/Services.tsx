@@ -351,7 +351,7 @@ const Services = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full overflow-hidden">
       <PageHeader 
         title="Serviços" 
         description="Gerenciamento de ordens de serviço"
@@ -359,14 +359,14 @@ const Services = () => {
         <Wrench className="h-6 w-6" />
       </PageHeader>
       
-      <Card className="p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-4">
-            <div className="relative w-full sm:w-64">
+      <Card className="p-4 lg:p-6">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+          <div className="w-full flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative w-full sm:w-48 lg:w-56">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar serviços..."
-                className="pl-8"
+                className="pl-8 text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -376,7 +376,7 @@ const Services = () => {
               value={statusFilter}
               onValueChange={setStatusFilter}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[160px] lg:w-[170px]">
                 <SelectValue placeholder="Todos os status" />
               </SelectTrigger>
               <SelectContent>
@@ -393,7 +393,7 @@ const Services = () => {
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
-                  className={`w-[180px] justify-between ${paymentFilter !== "all" ? "border-primary text-primary" : ""}`}
+                  className={`w-full sm:w-[160px] lg:w-[170px] justify-between text-sm ${paymentFilter !== "all" ? "border-primary text-primary" : ""}`}
                 >
                   {paymentFilter === "all" && "Buscar Pagamentos"}
                   {paymentFilter === "pending" && (
@@ -429,7 +429,7 @@ const Services = () => {
                   <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-[180px]">
+              <DropdownMenuContent className="w-[170px]">
                 <DropdownMenuItem onClick={() => setPaymentFilter("all")}>
                   Todos
                 </DropdownMenuItem>
@@ -466,12 +466,13 @@ const Services = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Popover open={showCalendarFilter} onOpenChange={setShowCalendarFilter}>
                 <PopoverTrigger asChild>
                   <Button 
                     variant="outline" 
-                    className={`w-full sm:w-auto flex gap-2 ${calendarDate ? 'text-primary' : ''}`}
+                    className={`w-full sm:w-auto flex gap-2 text-sm ${calendarDate ? 'text-primary' : ''}`}
+                    size="sm"
                   >
                     <CalendarIcon className="h-4 w-4" />
                     {calendarDate ? (
@@ -498,9 +499,10 @@ const Services = () => {
               {calendarDate && (
                 <Button 
                   variant="ghost" 
-                  size="icon" 
+                  size="sm" 
                   onClick={clearDateFilter}
                   title="Limpar filtro de data"
+                  className="p-1"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -508,9 +510,15 @@ const Services = () => {
             </div>
           </div>
           
-          <Button className="w-full sm:w-auto" onClick={() => navigate("/dashboard/clients")}>
-            <Plus className="h-4 w-4 mr-2" /> Novo Serviço
-          </Button>
+          <div className="w-full xl:w-auto flex justify-end">
+            <Button 
+              className="w-full sm:w-auto min-w-[140px] flex-shrink-0" 
+              onClick={() => navigate("/dashboard/clients")}
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-2" /> Novo Serviço
+            </Button>
+          </div>
         </div>
         
         <div className="rounded-md border">

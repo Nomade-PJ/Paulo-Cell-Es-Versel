@@ -43,6 +43,7 @@ import { toast } from '@/components/ui/use-toast';
 import { useOrganization } from '@/hooks/useOrganization';
 import ServiceThermalPrinter from './ServiceThermalPrinter';
 import BluetoothPrinterComponent from '@/components/BluetoothPrinter';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ServiceActionsMenuProps {
   service: any;
@@ -51,10 +52,54 @@ interface ServiceActionsMenuProps {
 
 const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [showBluetoothDialog, setShowBluetoothDialog] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState<any>(null);
   const { organizationId } = useOrganization();
+
+  // Buscar informações da empresa para impressão
+  React.useEffect(() => {
+    const fetchCompanyInfo = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('company_name, document, document_type, phone, cep, state, city, neighborhood, street, number, complement')
+          .eq('id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Erro ao buscar informações da empresa:', error);
+          return;
+        }
+
+        if (data) {
+          setCompanyInfo({
+            companyName: data.company_name,
+            document: data.document,
+            documentType: data.document_type,
+            phone: data.phone,
+            address: {
+              street: data.street,
+              number: data.number,
+              neighborhood: data.neighborhood,
+              city: data.city,
+              state: data.state,
+              cep: data.cep,
+              complement: data.complement,
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar informações da empresa:', error);
+      }
+    };
+
+    fetchCompanyInfo();
+  }, [user?.id]);
 
   const handleEdit = () => {
     navigate(`/dashboard/service-registration/${service.customer_id}/${service.device_id}?serviceId=${service.id}`);
@@ -236,7 +281,8 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
       observations: service.observations || undefined,
       warrantyInfo: service.warranty_period 
         ? `${service.warranty_period} ${parseInt(service.warranty_period) === 1 ? 'mês' : 'meses'}`
-        : undefined
+        : undefined,
+      companyInfo: companyInfo
     };
   };
 

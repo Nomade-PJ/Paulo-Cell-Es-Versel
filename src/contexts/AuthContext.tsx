@@ -30,7 +30,7 @@ interface AuthContextProps {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (companyName: string, email: string, password: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
@@ -251,7 +251,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (companyName: string, email: string, password: string, phone?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({ 
         email, 
@@ -259,7 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm`,
           data: {
-            name: name,
+            company_name: companyName,
           }
         }
       });
@@ -272,9 +272,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .from('profiles')
           .upsert({
             id: data.user.id,
-            name: name,
+            name: companyName,
+            company_name: companyName,
             email: email,
+            phone: phone,
             role: 'Usuário',
+            registration_step: 1, // Cadastro básico completo
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });

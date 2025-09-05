@@ -21,6 +21,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabaseClient";
+import { useOrganization } from '@/hooks/useOrganization';
 import { 
   Dialog, 
   DialogContent, 
@@ -101,6 +102,7 @@ const CATEGORIES = [
 
 const Inventory = () => {
   const navigate = useNavigate();
+  const { organizationId, loading: orgLoading } = useOrganization();
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -147,16 +149,25 @@ const Inventory = () => {
   });
   
   useEffect(() => {
-    fetchInventory();
-  }, [refreshTrigger]);
+    if (!orgLoading) {
+      fetchInventory();
+    }
+  }, [refreshTrigger, organizationId, orgLoading]);
   
   const fetchInventory = async () => {
     try {
       setLoading(true);
       
+      if (!organizationId) {
+        console.warn("ID da organização não encontrado");
+        setInventoryItems([]);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from("inventory")
         .select("*")
+        .eq('organization_id', organizationId)
         .order('name', { ascending: true });
         
       if (error) throw error;
@@ -238,13 +249,14 @@ const Inventory = () => {
   };
   
   const confirmDelete = async () => {
-    if (!itemToDelete) return;
+    if (!itemToDelete || !organizationId) return;
     
     try {
       const { error } = await supabase
         .from("inventory")
         .delete()
-        .eq('id', itemToDelete);
+        .eq('id', itemToDelete)
+        .eq('organization_id', organizationId);
         
       if (error) throw error;
       
@@ -277,6 +289,15 @@ const Inventory = () => {
       return;
     }
     
+    if (!organizationId) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "ID da organização não encontrado.",
+      });
+      return;
+    }
+    
     try {
       const newItem = {
         name: data.name,
@@ -288,6 +309,7 @@ const Inventory = () => {
         selling_price: data.sellingPrice || 0,
         quantity: data.quantity,
         minimum_stock: data.minimumStock,
+        organization_id: organizationId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -318,7 +340,7 @@ const Inventory = () => {
   };
   
   const onEditSubmit = async (data: InventoryFormValues) => {
-    if (!currentItem) return;
+    if (!currentItem || !organizationId) return;
     
     try {
       const updatedItem = {
@@ -336,7 +358,8 @@ const Inventory = () => {
       const { error } = await supabase
         .from("inventory")
         .update(updatedItem)
-        .eq('id', currentItem.id);
+        .eq('id', currentItem.id)
+        .eq('organization_id', organizationId);
         
       if (error) throw error;
       

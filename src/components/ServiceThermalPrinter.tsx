@@ -5,13 +5,60 @@ import { format } from "date-fns";
 import { ptBR } from 'date-fns/locale';
 import { generateTrackingId } from "@/lib/qrcode-utils";
 import { supabase } from "@/integrations/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ServiceThermalPrinterProps {
   service: any; // Service data structure
   children?: React.ReactNode;
 }
 
-export const ServiceThermalPrinter = ({ service, children }: ServiceThermalPrinterProps) => {
+export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, ServiceThermalPrinterProps>(
+  ({ service, children }, ref) => {
+  const { user } = useAuth();
+  const [companyInfo, setCompanyInfo] = React.useState<any>(null);
+
+  // Buscar informações da empresa para impressão
+  React.useEffect(() => {
+    const fetchCompanyInfo = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('company_name, document, document_type, phone, cep, state, city, neighborhood, street, number, complement')
+          .eq('id', user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Erro ao buscar informações da empresa:', error);
+          return;
+        }
+
+        if (data) {
+          setCompanyInfo({
+            companyName: data.company_name,
+            document: data.document,
+            documentType: data.document_type,
+            phone: data.phone,
+            address: {
+              street: data.street,
+              number: data.number,
+              neighborhood: data.neighborhood,
+              city: data.city,
+              state: data.state,
+              cep: data.cep,
+              complement: data.complement,
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar informações da empresa:', error);
+      }
+    };
+
+    fetchCompanyInfo();
+  }, [user?.id]);
+
   // Função para garantir que o serviço tenha um public_tracking_id
   const ensureTrackingId = async (serviceId: string) => {
     if (!service.public_tracking_id) {
@@ -178,9 +225,44 @@ export const ServiceThermalPrinter = ({ service, children }: ServiceThermalPrint
           }
           .header {
             text-align: center;
-            font-weight: bold;
             margin-bottom: 3mm;
+            padding: 2mm 0;
+            border-bottom: 2px solid #000;
+          }
+          .company-name {
+            font-weight: bold;
+            font-size: 14pt;
+            margin-bottom: 1mm;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .company-doc {
+            font-size: 10pt;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            color: #333;
+          }
+          .company-phone {
+            font-size: 10pt;
+            font-weight: bold;
+            margin-bottom: 2mm;
+          }
+          .company-address {
+            font-size: 9pt;
+            line-height: 1.2;
+            margin-bottom: 2mm;
+            color: #444;
+          }
+          .service-title {
+            text-align: center;
+            font-weight: bold;
             font-size: 12pt;
+            margin: 3mm 0;
+            padding: 2mm 0;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            text-transform: uppercase;
+            letter-spacing: 1px;
           }
           .info {
             margin-bottom: 2mm;
@@ -294,10 +376,24 @@ export const ServiceThermalPrinter = ({ service, children }: ServiceThermalPrint
       </head>
       <body>
         <div class="header">
-          PAULO CELL
-          <br />
-          ORDEM DE SERVIÇO
+          ${companyInfo?.companyName ? `
+          <div class="company-name">${companyInfo.companyName}</div>
+          ${companyInfo.document ? `<div class="company-doc">${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}</div>` : ''}
+          <div class="company-phone">Tel: ${companyInfo.phone || '(98) 12345-6789'}</div>
+          ${companyInfo.address && (companyInfo.address.street || companyInfo.address.city) ? `
+          <div class="company-address">
+            ${companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}${companyInfo.address.complement ? ` - ${companyInfo.address.complement}` : ''}
+            ${companyInfo.address.neighborhood ? `<br />${companyInfo.address.neighborhood}` : ''}
+            ${companyInfo.address.city && companyInfo.address.state ? `<br />${companyInfo.address.city} - ${companyInfo.address.state}` : ''}
+            ${companyInfo.address.cep ? `<br />CEP: ${companyInfo.address.cep}` : ''}
+          </div>` : ''}
+          ` : `
+          <div class="company-name">PAULO CELL - ASSISTÊNCIA TÉCNICA</div>
+          <div class="company-phone">Tel: (98) 12345-6789</div>
+          `}
         </div>
+        
+        <div class="service-title">ORDEM DE SERVIÇO</div>
         
         <div class="order-number">OS: ${orderNumber}</div>
         
@@ -372,7 +468,7 @@ export const ServiceThermalPrinter = ({ service, children }: ServiceThermalPrint
         <div class="footer">
           * Obrigado pela preferência *
           <br />
-          Paulo Cell - Assistência Técnica
+          ${companyInfo?.companyName || 'Paulo Cell - Assistência Técnica'}
           <br />
           <span class="small-text">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}</span>
         </div>
@@ -431,16 +527,20 @@ export const ServiceThermalPrinter = ({ service, children }: ServiceThermalPrint
     }
   };
 
-  return (
-    <Button 
-      variant="ghost" 
-      size="sm"
-      onClick={async () => await printServiceReceipt()} 
-      className="flex items-center gap-2 w-full justify-start px-2 py-1.5 h-9"
-    >
-      {children}
-    </Button>
-  );
-};
+    return (
+      <Button 
+        ref={ref}
+        variant="ghost" 
+        size="sm"
+        onClick={async () => await printServiceReceipt()} 
+        className="flex items-center gap-2 w-full justify-start px-2 py-1.5 h-9"
+      >
+        {children}
+      </Button>
+    );
+  }
+);
+
+ServiceThermalPrinter.displayName = "ServiceThermalPrinter";
 
 export default ServiceThermalPrinter; 

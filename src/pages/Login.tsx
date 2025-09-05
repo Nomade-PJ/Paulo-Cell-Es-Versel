@@ -39,9 +39,17 @@ import {
   EyeOff, 
   User, 
   ShieldCheck,
-  LinkIcon
+  LinkIcon,
+  Building,
+  FileText,
+  MapPin,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { validateDocument, formatDocument, validateCEP, formatCEP, fetchCEPInfo, formatPhone, validatePhone } from "@/lib/validators";
+import { supabase } from "@/integrations/supabaseClient";
 
 // Schema para validação do formulário de login
 const loginSchema = z.object({
@@ -49,15 +57,38 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres" })
 });
 
-// Schema para validação do formulário de cadastro
-const signupSchema = z.object({
-  name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres" }),
+// Schema para a primeira etapa do cadastro
+const step1Schema = z.object({
+  companyName: z.string().min(2, { message: "O nome da empresa deve ter pelo menos 2 caracteres" }),
   email: z.string().email({ message: "E-mail inválido" }),
   password: z.string().min(6, { message: "A senha deve ter pelo menos 6 caracteres" }),
-  confirmPassword: z.string().min(6, { message: "A confirmação de senha deve ter pelo menos 6 caracteres" })
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não conferem",
-  path: ["confirmPassword"]
+  phone: z.string().min(10, { message: "Telefone inválido" }).refine(validatePhone, {
+    message: "Formato de telefone inválido"
+  })
+});
+
+// Schema para a segunda etapa do cadastro
+const step2Schema = z.object({
+  document: z.string().min(11, { message: "CPF ou CNPJ é obrigatório" }).refine((doc) => {
+    const cleanDoc = doc.replace(/\D/g, '');
+    if (cleanDoc.length === 11) {
+      return validateDocument(doc, 'cpf');
+    } else if (cleanDoc.length === 14) {
+      return validateDocument(doc, 'cnpj');
+    }
+    return false;
+  }, {
+    message: "CPF ou CNPJ inválido"
+  }),
+  cep: z.string().min(8, { message: "CEP inválido" }).refine(validateCEP, {
+    message: "Formato de CEP inválido"
+  }),
+  state: z.string().min(2, { message: "Estado é obrigatório" }),
+  city: z.string().min(2, { message: "Cidade é obrigatória" }),
+  neighborhood: z.string().min(2, { message: "Bairro é obrigatório" }),
+  street: z.string().min(2, { message: "Logradouro é obrigatório" }),
+  number: z.string().min(1, { message: "Número é obrigatório" }),
+  complement: z.string().optional()
 });
 
 // Schema para validação do formulário de recuperação de senha
@@ -71,7 +102,8 @@ const magicLinkSchema = z.object({
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
-type SignupForm = z.infer<typeof signupSchema>;
+type Step1Form = z.infer<typeof step1Schema>;
+type Step2Form = z.infer<typeof step2Schema>;
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 type MagicLinkForm = z.infer<typeof magicLinkSchema>;
 
@@ -89,6 +121,9 @@ const Login = () => {
   const [animateCard, setAnimateCard] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [magicLinkDialogOpen, setMagicLinkDialogOpen] = useState(false);
+  const [signupStep, setSignupStep] = useState(1);
+  const [step1Data, setStep1Data] = useState<Step1Form | null>(null);
+  const [isLoadingCEP, setIsLoadingCEP] = useState(false);
 
   // Efeito para animar o card quando o componente montar
   useEffect(() => {
@@ -109,13 +144,27 @@ const Login = () => {
     }
   });
 
-  const signupForm = useForm<SignupForm>({
-    resolver: zodResolver(signupSchema),
+  const step1Form = useForm<Step1Form>({
+    resolver: zodResolver(step1Schema),
     defaultValues: {
-      name: "",
+      companyName: "",
       email: "",
       password: "",
-      confirmPassword: ""
+      phone: ""
+    }
+  });
+
+  const step2Form = useForm<Step2Form>({
+    resolver: zodResolver(step2Schema),
+    defaultValues: {
+      document: "",
+      cep: "",
+      state: "",
+      city: "",
+      neighborhood: "",
+      street: "",
+      number: "",
+      complement: ""
     }
   });
 
@@ -146,19 +195,128 @@ const Login = () => {
     }
   };
 
-  const handleSignup = async (values: SignupForm) => {
+  const handleStep1Submit = async (values: Step1Form) => {
+    setStep1Data(values);
+    setSignupStep(2);
+  };
+
+  const handleStep2Submit = async (values: Step2Form) => {
+    if (!step1Data) {
+      toast.error("Dados da primeira etapa não encontrados");
+      setSignupStep(1);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await signup(values.name, values.email, values.password);
+      // Primeiro, criar a conta no Supabase Auth
+      const { data, error } = await supabase.auth.signUp({ 
+        email: step1Data.email, 
+        password: step1Data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          data: {
+            company_name: step1Data.companyName,
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      // Depois, criar o perfil completo com todos os dados
+      if (data?.user) {
+        // Detecta automaticamente o tipo de documento
+        const cleanDoc = values.document.replace(/\D/g, '');
+        const documentType = cleanDoc.length === 11 ? 'cpf' : 'cnpj';
+        
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            name: step1Data.companyName, // Nome da empresa
+            company_name: step1Data.companyName,
+            email: step1Data.email,
+            phone: step1Data.phone,
+            document_type: documentType,
+            document: values.document,
+            cep: values.cep,
+            state: values.state,
+            city: values.city,
+            neighborhood: values.neighborhood,
+            street: values.street,
+            number: values.number,
+            complement: values.complement,
+            role: 'Usuário',
+            registration_step: 2, // Cadastro completo
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (profileError) {
+          console.error("Erro ao criar perfil:", profileError);
+        }
+      }
+
       toast.success("Cadastro realizado com sucesso! Verifique seu e-mail para confirmar.");
       setActiveTab("login");
-      signupForm.reset();
+      setSignupStep(1);
+      step1Form.reset();
+      step2Form.reset();
+      setStep1Data(null);
     } catch (error: any) {
-      console.error(error);
-      // Toast já é chamado no signup() do AuthContext
+      console.error("Erro no cadastro:", error);
+      toast.error("Falha no cadastro: " + error.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCEPChange = async (cep: string) => {
+    const formattedCEP = formatCEP(cep);
+    step2Form.setValue('cep', formattedCEP);
+
+    if (validateCEP(cep)) {
+      setIsLoadingCEP(true);
+      try {
+        const cepInfo = await fetchCEPInfo(cep);
+        if (cepInfo) {
+          step2Form.setValue('street', cepInfo.logradouro);
+          step2Form.setValue('neighborhood', cepInfo.bairro);
+          step2Form.setValue('city', cepInfo.localidade);
+          step2Form.setValue('state', cepInfo.uf);
+          if (cepInfo.complemento) {
+            step2Form.setValue('complement', cepInfo.complemento);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar CEP:', error);
+      } finally {
+        setIsLoadingCEP(false);
+      }
+    }
+  };
+
+  const handleDocumentChange = (document: string) => {
+    const cleanDoc = document.replace(/\D/g, '');
+    let formatted = document;
+    let docType: 'cpf' | 'cnpj' = 'cpf';
+    
+    // Detecta automaticamente se é CPF ou CNPJ baseado no comprimento
+    if (cleanDoc.length <= 11) {
+      docType = 'cpf';
+      formatted = formatDocument(document, 'cpf');
+    } else {
+      docType = 'cnpj';
+      formatted = formatDocument(document, 'cnpj');
+    }
+    
+    step2Form.setValue('document', formatted);
+    return docType;
+  };
+
+  const handlePhoneChange = (phone: string) => {
+    const formatted = formatPhone(phone);
+    step1Form.setValue('phone', formatted);
   };
 
   const handleAdminPassword = () => {
@@ -337,20 +495,42 @@ const Login = () => {
                 </div>
               </TabsContent>
               <TabsContent value="signup" className="space-y-4">
-                <Form {...signupForm}>
-                  <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
-                    <FormField
-                      control={signupForm.control}
-                      name="name"
+                {/* Indicador de etapas */}
+                <div className="flex items-center justify-center space-x-4 mb-6">
+                  <div className={`flex items-center ${signupStep >= 1 ? 'text-blue-400' : 'text-slate-500'}`}>
+                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                      signupStep >= 1 ? 'border-blue-400 bg-blue-400/20' : 'border-slate-500'
+                    }`}>
+                      {signupStep > 1 ? <CheckCircle className="h-4 w-4" /> : '1'}
+                    </div>
+                    <span className="ml-2 text-sm font-medium text-slate-200">Dados Básicos</span>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-500" />
+                  <div className={`flex items-center ${signupStep >= 2 ? 'text-blue-400' : 'text-slate-500'}`}>
+                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                      signupStep >= 2 ? 'border-blue-400 bg-blue-400/20' : 'border-slate-500'
+                    }`}>
+                      2
+                    </div>
+                    <span className="ml-2 text-sm font-medium text-slate-200">Documentos</span>
+                  </div>
+                </div>
+
+                {signupStep === 1 && (
+                  <Form {...step1Form}>
+                    <form onSubmit={step1Form.handleSubmit(handleStep1Submit)} className="space-y-4">
+                      <FormField
+                        control={step1Form.control}
+                        name="companyName"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
-                            <User className="h-4 w-4 mr-2 text-blue-400" />
-                            Nome
+                            <Building className="h-4 w-4 mr-2 text-blue-400" />
+                            Nome da Empresa
                           </FormLabel>
                           <FormControl>
                             <Input 
-                              placeholder="Seu nome" 
+                              placeholder="Digite o nome da empresa" 
                               {...field} 
                               className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
                             />
@@ -359,9 +539,9 @@ const Login = () => {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={signupForm.control}
-                      name="email"
+                      <FormField
+                        control={step1Form.control}
+                        name="email"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
@@ -370,7 +550,7 @@ const Login = () => {
                           </FormLabel>
                           <FormControl>
                             <Input 
-                              placeholder="seu@email.com" 
+                              placeholder="empresa@email.com" 
                               type="email" 
                               {...field} 
                               className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
@@ -380,9 +560,9 @@ const Login = () => {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={signupForm.control}
-                      name="password"
+                      <FormField
+                        control={step1Form.control}
+                        name="password"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
@@ -410,55 +590,253 @@ const Login = () => {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={signupForm.control}
-                      name="confirmPassword"
+                      <FormField
+                        control={step1Form.control}
+                        name="phone"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
-                            <ShieldCheck className="h-4 w-4 mr-2 text-blue-400" />
-                            Confirmar Senha
+                            <Phone className="h-4 w-4 mr-2 text-blue-400" />
+                            Telefone
                           </FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              <Input 
-                                type={showConfirmPassword ? "text" : "password"} 
-                                placeholder="******" 
-                                {...field} 
-                                className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md pr-10 h-11"
-                              />
-                              <button 
-                                type="button" 
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                              >
-                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </button>
-                            </div>
+                            <Input 
+                              placeholder="(11) 99999-9999" 
+                              {...field}
+                              onChange={(e) => {
+                                handlePhoneChange(e.target.value);
+                              }}
+                              className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                            />
                           </FormControl>
                           <FormMessage className="text-red-400 text-xs" />
                         </FormItem>
                       )}
                     />
-                    <Button 
-                      type="submit" 
-                      className="w-full enter-button h-11 mt-2 font-medium pulse-animation" 
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
+                      <Button 
+                        type="submit" 
+                        className="w-full enter-button h-11 mt-6 font-medium pulse-animation"
+                      >
                         <span className="flex items-center justify-center">
-                          <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Cadastrando...
+                          Próximo
+                          <ArrowRight className="ml-2 h-4 w-4" />
                         </span>
-                      ) : (
-                        "Cadastrar"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
+                      </Button>
+                    </form>
+                  </Form>
+                )}
+
+                {signupStep === 2 && (
+                  <Form {...step2Form}>
+                    <form onSubmit={step2Form.handleSubmit(handleStep2Submit)} className="space-y-4">
+                      <FormField
+                        control={step2Form.control}
+                        name="document"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
+                              <FileText className="h-4 w-4 mr-2 text-blue-400" />
+                              CPF ou CNPJ
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                                {...field}
+                                onChange={(e) => {
+                                  handleDocumentChange(e.target.value);
+                                }}
+                                className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-red-400 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={step2Form.control}
+                        name="cep"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-200 flex items-center text-sm font-medium">
+                              <MapPin className="h-4 w-4 mr-2 text-blue-400" />
+                              CEP
+                            </FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input 
+                                  placeholder="00000-000"
+                                  {...field}
+                                  onChange={(e) => handleCEPChange(e.target.value)}
+                                  className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                                />
+                                {isLoadingCEP && (
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+                                  </div>
+                                )}
+                              </div>
+                            </FormControl>
+                            <FormMessage className="text-red-400 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={step2Form.control}
+                          name="state"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-slate-200 text-sm font-medium">
+                                Estado
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="UF"
+                                  {...field}
+                                  className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                                />
+                              </FormControl>
+                              <FormMessage className="text-red-400 text-xs" />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={step2Form.control}
+                          name="city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-slate-200 text-sm font-medium">
+                                Cidade
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Cidade"
+                                  {...field}
+                                  className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                                />
+                              </FormControl>
+                              <FormMessage className="text-red-400 text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={step2Form.control}
+                        name="neighborhood"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-200 text-sm font-medium">
+                              Bairro
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Bairro"
+                                {...field}
+                                className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-red-400 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={step2Form.control}
+                        name="street"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-slate-200 text-sm font-medium">
+                              Logradouro
+                            </FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="Rua, Avenida, etc."
+                                {...field}
+                                className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-red-400 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={step2Form.control}
+                          name="number"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-slate-200 text-sm font-medium">
+                                Número
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="123"
+                                  {...field}
+                                  className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                                />
+                              </FormControl>
+                              <FormMessage className="text-red-400 text-xs" />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={step2Form.control}
+                          name="complement"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-slate-200 text-sm font-medium">
+                                Complemento
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Apto, Sala..."
+                                  {...field}
+                                  className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus-visible:ring-blue-500 rounded-md h-11"
+                                />
+                              </FormControl>
+                              <FormMessage className="text-red-400 text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="flex gap-3 mt-6">
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          onClick={() => setSignupStep(1)}
+                          className="flex-1 border-slate-700 text-slate-200 hover:bg-slate-800 h-11"
+                        >
+                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          Voltar
+                        </Button>
+                        <Button 
+                          type="submit" 
+                          className="flex-1 enter-button h-11 font-medium pulse-animation"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? (
+                            <span className="flex items-center justify-center">
+                              <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Cadastrando...
+                            </span>
+                          ) : (
+                            "Cadastrar-se"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                )}
                 <div className="flex justify-center items-center gap-2 text-sm text-slate-400">
                   <Button 
                     variant="link" 

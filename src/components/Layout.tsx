@@ -1,8 +1,53 @@
 import { Outlet } from "react-router-dom";
 import BottomNav from "./BottomNav";
+import DesktopSidebar from "./DesktopSidebar";
+import DesktopHeader from "./DesktopHeader";
 import Header from "./Header";
 import { useAuth } from "@/contexts/AuthContext";
+import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import { Navigate } from "react-router-dom";
+
+const LayoutContent = () => {
+  const { isCollapsed } = useSidebar();
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <div className="hidden lg:block">
+        <DesktopSidebar />
+      </div>
+
+      {/* Main Content Area */}
+      <div 
+        className={`transition-all duration-300 ${
+          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}
+      >
+        {/* Mobile Header - Hidden on desktop */}
+        <div className="lg:hidden">
+          <Header />
+        </div>
+        
+        {/* Desktop Header - Hidden on mobile */}
+        <div className="hidden lg:block">
+          <DesktopHeader />
+        </div>
+        
+        {/* Main Content */}
+        <main className="min-h-screen pb-20 lg:pb-0">
+          <div className="px-4 py-4 sm:px-6 lg:px-8 lg:py-6 w-full max-w-full">
+            <Outlet />
+          </div>
+        </main>
+        
+        {/* Mobile Bottom Navigation - Hidden on desktop */}
+        <div className="lg:hidden">
+          <BottomNav />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Layout = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -21,17 +66,11 @@ const Layout = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Show the authenticated layout with bottom navigation instead of sidebar
+  // Show the authenticated layout with responsive navigation
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <Header />
-      <main className="flex-1 overflow-auto p-0 pb-20"> {/* Aumenta o padding-bottom para evitar sobreposição com o BottomNav flutuante */}
-        <div className="container mx-auto py-4 px-4 sm:px-6 md:py-6 lg:px-8 max-w-full">
-          <Outlet />
-        </div>
-      </main>
-      <BottomNav />
-    </div>
+    <SidebarProvider>
+      <LayoutContent />
+    </SidebarProvider>
   );
 };
 

@@ -45,6 +45,20 @@ const profileFormSchema = z.object({
     message: 'Email inválido.',
   }),
   avatarUrl: z.string().optional(),
+  companyName: z.string().optional(),
+});
+
+const companyInfoFormSchema = z.object({
+  phone: z.string().optional(),
+  documentType: z.string().optional(),
+  document: z.string().optional(),
+  cep: z.string().optional(),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  neighborhood: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  complement: z.string().optional(),
 });
 
 const appearanceFormSchema = z.object({
@@ -52,6 +66,7 @@ const appearanceFormSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
+type CompanyInfoFormValues = z.infer<typeof companyInfoFormSchema>;
 type AppearanceFormValues = z.infer<typeof appearanceFormSchema>;
 
 const Settings = () => {
@@ -69,6 +84,23 @@ const Settings = () => {
       name: '',
       email: user?.email || '',
       avatarUrl: '',
+      companyName: '',
+    },
+  });
+
+  const companyInfoForm = useForm<CompanyInfoFormValues>({
+    resolver: zodResolver(companyInfoFormSchema),
+    defaultValues: {
+      phone: '',
+      documentType: '',
+      document: '',
+      cep: '',
+      state: '',
+      city: '',
+      neighborhood: '',
+      street: '',
+      number: '',
+      complement: '',
     },
   });
 
@@ -98,6 +130,19 @@ const Settings = () => {
         if (profileData) {
           profileForm.setValue('name', profileData.name || '');
           profileForm.setValue('email', user.email || '');
+          profileForm.setValue('companyName', profileData.company_name || '');
+          
+          companyInfoForm.setValue('phone', profileData.phone || '');
+          companyInfoForm.setValue('documentType', profileData.document_type || '');
+          companyInfoForm.setValue('document', profileData.document || '');
+          companyInfoForm.setValue('cep', profileData.cep || '');
+          companyInfoForm.setValue('state', profileData.state || '');
+          companyInfoForm.setValue('city', profileData.city || '');
+          companyInfoForm.setValue('neighborhood', profileData.neighborhood || '');
+          companyInfoForm.setValue('street', profileData.street || '');
+          companyInfoForm.setValue('number', profileData.number || '');
+          companyInfoForm.setValue('complement', profileData.complement || '');
+          
           setAvatarUrl(profileData.avatar_url || null);
           setAvatarPreview(profileData.avatar_url || null);
         } else {
@@ -138,7 +183,7 @@ const Settings = () => {
     if (user) {
       fetchUserData();
     }
-  }, [user, profileForm, appearanceForm]);
+  }, [user, profileForm, companyInfoForm, appearanceForm]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
@@ -208,6 +253,7 @@ const Settings = () => {
         .upsert({
           id: user.id,
           name: data.name,
+          company_name: data.companyName,
           email: user.email,
           created_at: now,
           updated_at: now,
@@ -228,6 +274,46 @@ const Settings = () => {
       toast({
         title: "Perfil atualizado",
         description: "Seu perfil foi atualizado com sucesso.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onCompanyInfoSubmit = async (data: CompanyInfoFormValues) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          phone: data.phone,
+          document_type: data.documentType,
+          document: data.document,
+          cep: data.cep,
+          state: data.state,
+          city: data.city,
+          neighborhood: data.neighborhood,
+          street: data.street,
+          number: data.number,
+          complement: data.complement,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Informações da empresa salvas',
+        description: 'Os dados da empresa foram atualizados com sucesso.',
+      });
+    } catch (error) {
+      console.error('Error updating company info:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível salvar as informações da empresa.',
       });
     } finally {
       setIsLoading(false);
@@ -273,12 +359,13 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Configurações</h1>
+    <div className="space-y-6 min-h-screen bg-background text-foreground">
+      <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
       
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid grid-cols-2 w-full max-w-md">
+        <TabsList className="grid grid-cols-3 w-full max-w-2xl">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="company">Informações da Empresa</TabsTrigger>
           <TabsTrigger value="appearance">Aparência</TabsTrigger>
         </TabsList>
         
@@ -340,12 +427,12 @@ const Settings = () => {
                 <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
                   <FormField
                     control={profileForm.control}
-                    name="name"
+                    name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nome</FormLabel>
+                        <FormLabel>Nome da Empresa</FormLabel>
                         <FormControl>
-                          <Input placeholder="Seu nome" {...field} />
+                          <Input placeholder="Nome da sua empresa" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -371,6 +458,178 @@ const Settings = () => {
                   
                   <Button type="submit" disabled={isLoading}>
                     {isLoading ? "Salvando..." : "Salvar alterações"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="company">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações da Empresa</CardTitle>
+              <CardDescription>
+                Gerencie os dados da sua empresa.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Form {...companyInfoForm}>
+                <form onSubmit={companyInfoForm.handleSubmit(onCompanyInfoSubmit)} className="space-y-4">
+                  <FormField
+                    control={companyInfoForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(11) 99999-9999" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={companyInfoForm.control}
+                      name="documentType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Documento</FormLabel>
+                          <FormControl>
+                            <Input placeholder="CPF/CNPJ" {...field} disabled readOnly className="bg-muted" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={companyInfoForm.control}
+                      name="document"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Documento</FormLabel>
+                          <FormControl>
+                            <Input placeholder="000.000.000-00" {...field} disabled readOnly className="bg-muted" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <Separator />
+                  
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Endereço</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={companyInfoForm.control}
+                        name="cep"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>CEP</FormLabel>
+                            <FormControl>
+                              <Input placeholder="00000-000" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={companyInfoForm.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Estado</FormLabel>
+                            <FormControl>
+                              <Input placeholder="UF" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <FormField
+                      control={companyInfoForm.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cidade</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Cidade" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={companyInfoForm.control}
+                      name="neighborhood"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bairro</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Bairro" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={companyInfoForm.control}
+                      name="street"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Logradouro</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Rua, Avenida, etc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={companyInfoForm.control}
+                        name="number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Número</FormLabel>
+                            <FormControl>
+                              <Input placeholder="123" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={companyInfoForm.control}
+                        name="complement"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Complemento</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Apto, Sala..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? "Salvando..." : "Salvar informações da empresa"}
                   </Button>
                 </form>
               </Form>
