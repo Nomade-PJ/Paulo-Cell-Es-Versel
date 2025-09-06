@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { 
   Select,
   SelectContent,
@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { PageHeader } from "@/components/PageHeader";
-import { Wrench, Search, Plus, CalendarIcon, X, CreditCard, QrCode, Banknote, Clock, ChevronDown, Check } from "lucide-react";
+import { Wrench, Search, Plus, CalendarIcon, X, CreditCard, QrCode, Banknote, Clock, ChevronDown, Check, User, Smartphone, MapPin, DollarSign } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabaseClient";
 import { useOrganization } from '@/hooks/useOrganization';
@@ -73,6 +74,7 @@ const Services = () => {
   const [calendarDate, setCalendarDate] = useState(null);
   const [showCalendarFilter, setShowCalendarFilter] = useState(false);
   const [activePaymentMethod, setActivePaymentMethod] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   // Fetch services on component mount
   useEffect(() => {
@@ -350,6 +352,96 @@ const Services = () => {
     };
   };
 
+  // Componente para renderizar serviço em card (mobile)
+  const ServiceCard = ({ service }) => {
+    const getPaymentIcon = (paymentMethod) => {
+      switch (paymentMethod) {
+        case 'pix': return <QrCode className="h-4 w-4" />;
+        case 'cash': return <Banknote className="h-4 w-4" />;
+        case 'credit':
+        case 'debit': return <CreditCard className="h-4 w-4" />;
+        default: return <Clock className="h-4 w-4 text-yellow-500" />;
+      }
+    };
+
+    const paymentMethods = {
+      pending: "Pendente",
+      credit: "Crédito",
+      debit: "Débito",
+      pix: "Pix",
+      cash: "Espécie"
+    };
+
+    return (
+      <Card className="w-full">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                <Wrench className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base">
+                  OS #{service.id ? service.id.substring(0, 8).toUpperCase() : "N/A"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {service.customers?.name || "Cliente não encontrado"}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <Badge className={`${statusColors[service.status]} text-white text-xs`}>
+                {statusNames[service.status]}
+              </Badge>
+              <span className="text-sm font-medium">
+                {formatCurrency(service.price || 0)}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Smartphone className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">
+                {service.devices ? 
+                  `${service.devices.brand} ${service.devices.model}` : 
+                  "Dispositivo não encontrado"
+                }
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">
+                {service.service_type === 'other' 
+                  ? service.other_service_description 
+                  : getServiceLabel(service.service_type)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                {getPaymentIcon(service.payment_method)}
+                <span>
+                  {service.payment_method ? 
+                    (service.payment_method === 'pending' ? 
+                      "Selecionar Pagamento" : 
+                      paymentMethods[service.payment_method]
+                    ) : 
+                    "Selecionar Pagamento"
+                  }
+                </span>
+              </div>
+              <ServiceActionsMenu 
+                service={service}
+                onUpdate={fetchServices}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6 w-full overflow-hidden">
       <PageHeader 
@@ -516,24 +608,57 @@ const Services = () => {
               onClick={() => navigate("/dashboard/clients")}
               size="sm"
             >
-              <Plus className="h-4 w-4 mr-2" /> Novo Serviço
+              <Plus className="h-4 w-4 mr-2" /> {isMobile ? 'Novo' : 'Novo Serviço'}
             </Button>
           </div>
         </div>
         
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Dispositivo</TableHead>
-                <TableHead>Serviço</TableHead>
-                <TableHead>Preço</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Método de Pagamento</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
+        {/* Renderização condicional: Cards no mobile, tabela no desktop */}
+        {isMobile ? (
+          <div className="space-y-4">
+            {loading ? (
+              <div className="flex justify-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+              </div>
+            ) : filteredServices.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum serviço encontrado.</p>
+                {(calendarDate || statusFilter !== 'all' || paymentFilter !== 'all') && (
+                  <p className="text-sm mt-2">
+                    Filtros ativos: 
+                    {calendarDate && ` Data: ${format(calendarDate, "dd/MM/yyyy")}`}
+                    {statusFilter !== 'all' && ` Status: ${statusNames[statusFilter]}`}
+                    {paymentFilter !== 'all' && ` Pagamento: ${
+                      paymentFilter === 'pending' ? 'Pendentes' :
+                      paymentFilter === 'paid' ? 'Todos Pagos' :
+                      paymentFilter === 'pix' ? 'Pix' :
+                      paymentFilter === 'cash' ? 'Espécie' :
+                      paymentFilter === 'card' ? 'Cartão' : ''
+                    }`}
+                  </p>
+                )}
+              </div>
+            ) : (
+              filteredServices.map((service) => (
+                <ServiceCard key={service.id} service={service} />
+              ))
+            )}
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Dispositivo</TableHead>
+                  <TableHead>Serviço</TableHead>
+                  <TableHead>Preço</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Método de Pagamento</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
             <TableCaption>
               {(calendarDate || statusFilter !== 'all' || paymentFilter !== 'all') && (
                 <div className="text-sm text-muted-foreground">
@@ -659,6 +784,7 @@ const Services = () => {
             </TableBody>
           </Table>
         </div>
+        )}
       </Card>
     </div>
   );

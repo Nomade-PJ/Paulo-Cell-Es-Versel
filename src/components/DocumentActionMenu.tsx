@@ -682,19 +682,19 @@ ${companyInfo.address.city && companyInfo.address.state ? `${companyInfo.address
     try {
       // Garantir que as informações da empresa estejam carregadas
       if (!companyInfo && !loading) {
-        console.log('Tentando recarregar informações da empresa...');
+        // console.log('Tentando recarregar informações da empresa...');
         await refreshCompanyInfo();
         // Aguardar um pouco para o estado atualizar
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      console.log('Estado das informações da empresa na impressão de documento:', {
-        companyInfo,
-        loading,
-        hasCompanyName: companyInfo?.companyName,
-        hasPhone: companyInfo?.phone,
-        hasDocument: companyInfo?.document
-      });
+      // console.log('Estado das informações da empresa na impressão de documento:', {
+      //   companyInfo,
+      //   loading,
+      //   hasCompanyName: companyInfo?.companyName,
+      //   hasPhone: companyInfo?.phone,
+      //   hasDocument: companyInfo?.document
+      // });
 
       // Gerar conteúdo térmico
       const content = generateThermalContent();

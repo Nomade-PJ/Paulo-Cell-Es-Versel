@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { FileText, FilePlus, Search, Calendar, Download, RefreshCw, X, Eye, Filter, ArrowRight, AlertCircle } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -44,6 +45,7 @@ const Documents = () => {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const navigate = useNavigate();
   const { organizationId, loading: orgLoading } = useOrganization();
+  const isMobile = useIsMobile();
 
   // Forçar atualização
   const forceRefresh = () => {
@@ -809,12 +811,18 @@ const Documents = () => {
         title="Documentos Fiscais"
         description="Gerencie notas fiscais e documentos fiscais eletrônicos."
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={forceRefresh} className="flex items-center gap-1">
+          <div className={`flex gap-2 ${isMobile ? 'w-full' : ''}`}>
+            <Button 
+              variant="outline" 
+              onClick={forceRefresh} 
+              className={`flex items-center gap-1 ${isMobile ? 'flex-1' : ''}`}
+            >
               <RefreshCw className="h-4 w-4" />
-              Atualizar
+              {isMobile ? '' : 'Atualizar'}
             </Button>
-            <NewDocumentDialog onDocumentCreated={handleNewDocument} />
+            <div className={isMobile ? 'flex-1' : ''}>
+              <NewDocumentDialog onDocumentCreated={handleNewDocument} />
+            </div>
           </div>
         }
       >
@@ -1142,6 +1150,68 @@ const Documents = () => {
   );
 };
 
+// Componente para renderizar documento em card (mobile)
+const DocumentCard = ({ 
+  document, 
+  getStatusBadge, 
+  getDocumentTypeLabel, 
+  formatCurrency,
+  onDocumentUpdated 
+}: { 
+  document: FiscalDocument;
+  getStatusBadge: (status: string) => JSX.Element;
+  getDocumentTypeLabel: (type: string) => string;
+  formatCurrency: (value: number) => string;
+  onDocumentUpdated?: () => void;
+}) => (
+  <Card className="w-full">
+    <CardHeader className="pb-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-base">
+              {getDocumentTypeLabel(document.type)} #{document.number}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {document.customer_name || "Cliente não informado"}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          {getStatusBadge(document.status)}
+          <span className="text-sm font-medium">
+            {formatCurrency(document.total_value)}
+          </span>
+        </div>
+      </div>
+    </CardHeader>
+    <CardContent className="pt-0">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Data de Emissão:</span>
+          <span>{new Date(document.issue_date).toLocaleDateString('pt-BR')}</span>
+        </div>
+        {document.customer_id && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">CNPJ/CPF:</span>
+            <span className="truncate">{document.customer_id}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-sm text-muted-foreground">Ações:</span>
+          <DocumentActionMenu 
+            document={document}
+            onDocumentUpdated={onDocumentUpdated}
+          />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
 interface DocumentsTableProps {
   documents: FiscalDocument[];
   getStatusBadge: (status: string) => JSX.Element;
@@ -1157,9 +1227,34 @@ const DocumentsTable = ({
   formatCurrency,
   onDocumentUpdated
 }: DocumentsTableProps) => {
+  const isMobile = useIsMobile();
+
   return (
-    <div className="rounded-md border">
-      <Table>
+    <>
+      {/* Renderização condicional: Cards no mobile, tabela no desktop */}
+      {isMobile ? (
+        <div className="space-y-4">
+          {documents.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum documento encontrado.</p>
+            </div>
+          ) : (
+            documents.map((document) => (
+              <DocumentCard 
+                key={document.id} 
+                document={document}
+                getStatusBadge={getStatusBadge}
+                getDocumentTypeLabel={getDocumentTypeLabel}
+                formatCurrency={formatCurrency}
+                onDocumentUpdated={onDocumentUpdated}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Número</TableHead>
@@ -1196,6 +1291,8 @@ const DocumentsTable = ({
         </TableBody>
       </Table>
     </div>
+      )}
+    </>
   );
 };
 

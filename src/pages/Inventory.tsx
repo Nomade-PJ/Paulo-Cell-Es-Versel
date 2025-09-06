@@ -60,7 +60,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface InventoryItem {
   id: string;
@@ -115,6 +116,7 @@ const Inventory = () => {
   const [currentItem, setCurrentItem] = useState<InventoryItem | null>(null);
   const [isGeneratingSku, setIsGeneratingSku] = useState(false);
   const [generatedSku, setGeneratedSku] = useState<string>("");
+  const isMobile = useIsMobile();
   
   // Estados para controlar os valores dos campos de preço
   const [costPriceInput, setCostPriceInput] = useState<string>("");
@@ -394,18 +396,95 @@ const Inventory = () => {
       return <Badge className="bg-green-500">Em estoque</Badge>;
     }
   };
+
+  // Componente para renderizar item de estoque em card (mobile)
+  const InventoryCard = ({ item }: { item: InventoryItem }) => (
+    <Card className="w-full">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <PackageOpen className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">{item.name}</h3>
+              <p className="text-sm text-muted-foreground">SKU: {item.sku}</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            {renderStockStatusBadge(item.quantity, item.minimum_stock)}
+            <span className="text-sm font-medium">
+              R$ {item.selling_price.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Categoria:</span>
+            <span className="capitalize">
+              {item.category === 'outro' ? item.custom_category || 'Personalizada' : item.category}
+            </span>
+          </div>
+          {item.compatibility && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Compatibilidade:</span>
+              <span className="truncate">{item.compatibility}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Quantidade:</span>
+            <span className="font-medium">{item.quantity} un.</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Estoque mínimo:</span>
+            <span>{item.minimum_stock} un.</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Preço custo:</span>
+            <span>R$ {item.cost_price.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-sm text-muted-foreground">Ações:</span>
+            <div className="flex gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleEdit(item)}
+              >
+                <FileEdit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleDelete(item.id)}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
   
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Inventário</h1>
-        <Button onClick={() => {
-          setGeneratedSku("");
-          form.reset();
-          setNewItemDialogOpen(true);
-        }}>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">Inventário</h1>
+        <Button 
+          onClick={() => {
+            setGeneratedSku("");
+            form.reset();
+            setNewItemDialogOpen(true);
+          }}
+          className="w-full sm:w-auto"
+        >
           <Plus className="mr-2 h-4 w-4" />
-          Novo Item
+          {isMobile ? 'Novo Item' : 'Novo Item'}
         </Button>
       </div>
       
@@ -438,20 +517,39 @@ const Inventory = () => {
         </Select>
       </div>
       
-      <Card className="p-0 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Compatibilidade</TableHead>
-              <TableHead className="text-right">Preço (R$)</TableHead>
-              <TableHead className="text-right">Estoque</TableHead>
-              <TableHead className="text-right">Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
+      {/* Renderização condicional: Cards no mobile, tabela no desktop */}
+      {isMobile ? (
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <PackageOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum item encontrado no inventário.</p>
+            </div>
+          ) : (
+            filteredItems.map((item) => (
+              <InventoryCard key={item.id} item={item} />
+            ))
+          )}
+        </div>
+      ) : (
+        <Card className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>SKU</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Compatibilidade</TableHead>
+                <TableHead className="text-right">Preço (R$)</TableHead>
+                <TableHead className="text-right">Estoque</TableHead>
+                <TableHead className="text-right">Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
@@ -504,6 +602,7 @@ const Inventory = () => {
           </TableBody>
         </Table>
       </Card>
+      )}
 
       <Dialog open={newItemDialogOpen} onOpenChange={setNewItemDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">

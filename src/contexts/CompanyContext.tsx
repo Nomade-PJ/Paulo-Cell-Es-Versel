@@ -77,10 +77,10 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
           }
         };
         
-        console.log('Informações da empresa carregadas:', newCompanyInfo);
+        // console.log('Informações da empresa carregadas:', newCompanyInfo);
         setCompanyInfo(newCompanyInfo);
       } else {
-        console.log('Nenhum dado da empresa encontrado para o usuário:', user.id);
+        // console.log('Nenhum dado da empresa encontrado para o usuário:', user.id);
         setCompanyInfo(null);
       }
     } catch (error) {
@@ -99,7 +99,7 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     
     const timeout = setTimeout(async () => {
-      console.log('Forçando refresh das informações da empresa...');
+      // console.log('Forçando refresh das informações da empresa...');
       setIsInitialized(false); // Reset initialization flag to force refetch
       await fetchCompanyInfo();
     }, 300);

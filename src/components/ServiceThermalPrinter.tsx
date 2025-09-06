@@ -83,7 +83,7 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
   const printServiceReceipt = async () => {
     // Garantir que as informações da empresa estejam carregadas
     if (!companyInfo && !loading) {
-      console.log('Tentando recarregar informações da empresa...');
+        // console.log('Tentando recarregar informações da empresa...');
       await refreshCompanyInfo();
       // Aguardar um pouco para o estado atualizar
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -151,14 +151,14 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
     // Gerar ID de ordem formatado para exibição
     const orderNumber = service.id ? service.id.substring(0, 8).toUpperCase() : "N/A";
     
-    // Debug logs
-    console.log('Estado das informações da empresa na impressão:', {
-      companyInfo,
-      loading,
-      hasCompanyName: companyInfo?.companyName,
-      hasPhone: companyInfo?.phone,
-      hasDocument: companyInfo?.document
-    });
+    // Debug logs (desabilitado para produção)
+    // console.log('Estado das informações da empresa na impressão:', {
+    //   companyInfo,
+    //   loading,
+    //   hasCompanyName: companyInfo?.companyName,
+    //   hasPhone: companyInfo?.phone,
+    //   hasDocument: companyInfo?.document
+    // });
     
     // Processar observações para formatação adequada (quebras de linha, remoção de caracteres especiais)
     const formattedObservations = service.observations 

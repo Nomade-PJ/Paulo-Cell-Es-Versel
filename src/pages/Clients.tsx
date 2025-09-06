@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { 
   Table, 
   TableBody, 
@@ -9,13 +10,14 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Plus, Search, FileEdit, Trash2, Phone, UserPlus, Smartphone } from "lucide-react";
+import { Plus, Search, FileEdit, Trash2, Phone, UserPlus, Smartphone, Mail, MapPin, Calendar, User } from "lucide-react";
 import { Customer } from "@/types";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { formatCPF, formatCNPJ } from "@/lib/utils";
 import { supabase } from "@/integrations/supabaseClient";
 import { useOrganization } from '@/hooks/useOrganization';
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +41,7 @@ const Clients = () => {
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { organizationId, loading: orgLoading } = useOrganization();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -205,21 +208,112 @@ const Clients = () => {
     }
   };
 
+  // Componente para renderizar cliente em card (mobile)
+  const ClientCard = ({ client }: { client: Customer }) => (
+    <Card 
+      className={`${action === 'select_for_device' ? 'cursor-pointer hover:bg-muted transition-colors' : ''}`}
+      onClick={() => action === 'select_for_device' && handleClientRowClick(client)}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-base">{client.name}</h3>
+              <p className="text-sm text-muted-foreground">
+                {client.document_type === 'cpf' 
+                  ? formatCPF(client.document || "") 
+                  : client.document_type === 'cnpj' 
+                    ? formatCNPJ(client.document || "") 
+                    : client.document || "Documento não informado"}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCallClient(client.phone);
+              }}
+            >
+              <Phone className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditClient(client.id);
+              }}
+            >
+              <FileEdit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClient(client.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="space-y-2">
+          {client.email && (
+            <div className="flex items-center gap-2 text-sm">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{client.email}</span>
+            </div>
+          )}
+          {client.phone && (
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <span>{client.phone}</span>
+            </div>
+          )}
+          {client.address && (
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <span className="truncate">{client.address}</span>
+            </div>
+          )}
+          {client.created_at && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>Cadastrado em {new Date(client.created_at).toLocaleDateString('pt-BR')}</span>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">
           {action === 'select_for_device' ? 'Selecione um Cliente' : 'Clientes'}
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           {action === 'select_for_device' && (
-            <Button variant="outline" onClick={() => navigate('/dashboard/devices')}>
+            <Button variant="outline" onClick={() => navigate('/dashboard/devices')} className="flex-1 sm:flex-none">
               Cancelar
             </Button>
           )}
-          <Button onClick={handleNewClient}>
+          <Button onClick={handleNewClient} className="flex-1 sm:flex-none">
             <UserPlus className="mr-2 h-4 w-4" />
-            Novo Cliente
+            {isMobile ? 'Novo' : 'Novo Cliente'}
           </Button>
         </div>
       </div>
@@ -236,95 +330,115 @@ const Clients = () => {
         </div>
       </div>
       
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Telefone</TableHead>
-              <TableHead>Documento</TableHead>
-              <TableHead>Endereço</TableHead>
-              <TableHead>Data de Cadastro</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+      {/* Renderização condicional: Cards no mobile, tabela no desktop */}
+      {isMobile ? (
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+            </div>
+          ) : filteredClients.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum cliente encontrado.</p>
+            </div>
+          ) : (
+            filteredClients.map((client) => (
+              <ClientCard key={client.id} client={client} />
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10">
-                  <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
-                  </div>
-                </TableCell>
+                <TableHead>Nome</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Telefone</TableHead>
+                <TableHead>Documento</TableHead>
+                <TableHead>Endereço</TableHead>
+                <TableHead>Data de Cadastro</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
-            ) : filteredClients.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                  Nenhum cliente encontrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredClients.map((client) => (
-                <TableRow 
-                  key={client.id} 
-                  className={action === 'select_for_device' ? 'cursor-pointer hover:bg-muted' : ''}
-                  onClick={() => action === 'select_for_device' && handleClientRowClick(client)}
-                >
-                  <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.email || "—"}</TableCell>
-                  <TableCell>{client.phone || "—"}</TableCell>
-                  <TableCell>
-                    {client.document_type === 'cpf' 
-                      ? formatCPF(client.document || "") 
-                      : client.document_type === 'cnpj' 
-                        ? formatCNPJ(client.document || "") 
-                        : client.document || "—"}
-                  </TableCell>
-                  <TableCell>{client.address || "—"}</TableCell>
-                  <TableCell>
-                    {client.created_at 
-                      ? new Date(client.created_at).toLocaleDateString('pt-BR')
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCallClient(client.phone);
-                      }}
-                    >
-                      <Phone className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditClient(client.id);
-                      }}
-                    >
-                      <FileEdit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost" 
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteClient(client.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10">
+                    <div className="flex justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent"></div>
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : filteredClients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                    Nenhum cliente encontrado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredClients.map((client) => (
+                  <TableRow 
+                    key={client.id} 
+                    className={action === 'select_for_device' ? 'cursor-pointer hover:bg-muted' : ''}
+                    onClick={() => action === 'select_for_device' && handleClientRowClick(client)}
+                  >
+                    <TableCell className="font-medium">{client.name}</TableCell>
+                    <TableCell>{client.email || "—"}</TableCell>
+                    <TableCell>{client.phone || "—"}</TableCell>
+                    <TableCell>
+                      {client.document_type === 'cpf' 
+                        ? formatCPF(client.document || "") 
+                        : client.document_type === 'cnpj' 
+                          ? formatCNPJ(client.document || "") 
+                          : client.document || "—"}
+                    </TableCell>
+                    <TableCell>{client.address || "—"}</TableCell>
+                    <TableCell>
+                      {client.created_at 
+                        ? new Date(client.created_at).toLocaleDateString('pt-BR')
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCallClient(client.phone);
+                        }}
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditClient(client.id);
+                        }}
+                      >
+                        <FileEdit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClient(client.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Confirm Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
