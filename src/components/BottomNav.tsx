@@ -157,7 +157,7 @@ const BottomNav = () => {
               )}
             </div>
             <span className="text-xs font-medium">{item.label}</span>
-            <span className="nav-item-ripple"></span>
+            <span className="nav-item-ripple" aria-hidden="true"></span>
           </NavLink>
         ))}
 
@@ -166,16 +166,19 @@ const BottomNav = () => {
           <DrawerTrigger asChild>
             <button
               className="flex flex-col items-center justify-center px-3 py-1 rounded-md text-sidebar-foreground/70 hover:text-sidebar-foreground bottom-nav-item relative"
+              aria-label="Abrir menu com mais opções"
+              type="button"
             >
               <MoreHorizontal className="h-5 w-5 mb-1" aria-hidden="true" />
               <span className="text-xs font-medium">Mais</span>
-              <span className="nav-item-ripple"></span>
+              <span className="nav-item-ripple" aria-hidden="true"></span>
               
               {/* Badge combinando todas as notificações de itens secundários */}
               {(notificationCounts.documents > 0 || notificationCounts.inventory > 0) && (
                 <Badge 
                   variant="destructive" 
                   className="absolute -top-2 right-1 h-4 w-4 flex items-center justify-center p-0 text-[8px]"
+                  aria-label={`${notificationCounts.documents + notificationCounts.inventory} notificações pendentes`}
                 >
                   {notificationCounts.documents + notificationCounts.inventory}
                 </Badge>
