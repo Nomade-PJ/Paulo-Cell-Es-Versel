@@ -34,6 +34,9 @@ import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from "@/contexts/ThemeContext";
+import { useCompanyInfo } from "@/contexts/CompanyContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { validateDocument, validateCEP, fetchCEPInfo, formatDocument, formatCEP, formatPhone } from '@/lib/validators';
 
 import { Moon, Sun, Upload, Loader2 } from 'lucide-react';
 
@@ -50,15 +53,30 @@ const profileFormSchema = z.object({
 
 const companyInfoFormSchema = z.object({
   phone: z.string().optional(),
-  documentType: z.string().optional(),
+  documentType: z.enum(['cpf', 'cnpj'], {
+    errorMap: () => ({ message: 'Selecione o tipo de documento' })
+  }).optional(),
   document: z.string().optional(),
-  cep: z.string().optional(),
+  cep: z.string().optional().refine((cep) => {
+    if (!cep) return true; // Campo opcional
+    return validateCEP(cep);
+  }, {
+    message: 'CEP inválido'
+  }),
   state: z.string().optional(),
   city: z.string().optional(),
   neighborhood: z.string().optional(),
   street: z.string().optional(),
   number: z.string().optional(),
   complement: z.string().optional(),
+}).refine((data) => {
+  if (data.document && data.documentType) {
+    return validateDocument(data.document, data.documentType);
+  }
+  return true;
+}, {
+  message: 'Documento inválido',
+  path: ['document'],
 });
 
 const appearanceFormSchema = z.object({
@@ -72,11 +90,13 @@ type AppearanceFormValues = z.infer<typeof appearanceFormSchema>;
 const Settings = () => {
   const { user, refreshProfile } = useAuth();
   const { theme: currentTheme, setTheme } = useTheme();
+  const { refreshCompanyInfo } = useCompanyInfo();
   const [isLoading, setIsLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [loadingCEP, setLoadingCEP] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -92,7 +112,7 @@ const Settings = () => {
     resolver: zodResolver(companyInfoFormSchema),
     defaultValues: {
       phone: '',
-      documentType: '',
+      documentType: undefined,
       document: '',
       cep: '',
       state: '',
@@ -132,8 +152,10 @@ const Settings = () => {
           profileForm.setValue('email', user.email || '');
           profileForm.setValue('companyName', profileData.company_name || '');
           
-          companyInfoForm.setValue('phone', profileData.phone || '');
-          companyInfoForm.setValue('documentType', profileData.document_type || '');
+          companyInfoForm.setValue('phone', formatPhone(profileData.phone || ''));
+          if (profileData.document_type === 'cpf' || profileData.document_type === 'cnpj') {
+            companyInfoForm.setValue('documentType', profileData.document_type);
+          }
           companyInfoForm.setValue('document', profileData.document || '');
           companyInfoForm.setValue('cep', profileData.cep || '');
           companyInfoForm.setValue('state', profileData.state || '');
@@ -169,7 +191,6 @@ const Settings = () => {
           document.documentElement.classList.toggle('dark', settingsData.theme === 'dark');
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
         toast({
           variant: 'destructive',
           title: 'Erro',
@@ -229,7 +250,6 @@ const Settings = () => {
           description: 'Sua foto de perfil foi atualizada com sucesso.'
         });
       } catch (error) {
-        console.error('Error uploading avatar:', error);
         toast({
           variant: 'destructive',
           title: 'Erro',
@@ -264,12 +284,14 @@ const Settings = () => {
       
       await refreshProfile();
       
+      // Atualizar o contexto da empresa
+      await refreshCompanyInfo();
+      
       toast({
         title: "Perfil atualizado",
         description: "Suas informações pessoais foram atualizadas com sucesso.",
       });
     } catch (error) {
-      console.error('Error updating profile:', error);
       // Mostrando mensagem de sucesso mesmo quando ocorre erro para atender à solicitação do cliente
       toast({
         title: "Perfil atualizado",
@@ -304,12 +326,14 @@ const Settings = () => {
 
       if (error) throw error;
 
+      // Atualizar o contexto da empresa
+      await refreshCompanyInfo();
+
       toast({
         title: 'Informações da empresa salvas',
         description: 'Os dados da empresa foram atualizados com sucesso.',
       });
     } catch (error) {
-      console.error('Error updating company info:', error);
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -332,7 +356,6 @@ const Settings = () => {
         description: 'Suas preferências de tema foram atualizadas.',
       });
     } catch (error) {
-      console.error('Error updating appearance settings:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -342,6 +365,63 @@ const Settings = () => {
       setIsLoading(false);
     }
   };
+
+  // Função para buscar informações do CEP
+  const handleCEPChange = async (cep: string) => {
+    companyInfoForm.setValue('cep', formatCEP(cep));
+    
+    if (validateCEP(cep)) {
+      setLoadingCEP(true);
+      try {
+        const cepInfo = await fetchCEPInfo(cep);
+        if (cepInfo) {
+          companyInfoForm.setValue('state', cepInfo.uf);
+          companyInfoForm.setValue('city', cepInfo.localidade);
+          companyInfoForm.setValue('neighborhood', cepInfo.bairro);
+          companyInfoForm.setValue('street', cepInfo.logradouro);
+          
+          toast({
+            title: 'CEP encontrado',
+            description: 'Endereço preenchido automaticamente.',
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'CEP não encontrado',
+            description: 'Verifique o CEP informado.',
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro',
+          description: 'Não foi possível buscar as informações do CEP.',
+        });
+      } finally {
+        setLoadingCEP(false);
+      }
+    }
+  };
+
+  // Função para lidar com mudança no tipo de documento
+  const handleDocumentTypeChange = (type: 'cpf' | 'cnpj') => {
+    companyInfoForm.setValue('documentType', type);
+    const currentDocument = companyInfoForm.getValues('document');
+    if (currentDocument) {
+      companyInfoForm.setValue('document', formatDocument(currentDocument, type));
+    }
+  };
+
+  // Função para lidar com mudança no documento
+  const handleDocumentChange = (document: string) => {
+    const documentType = companyInfoForm.getValues('documentType');
+    if (documentType) {
+      companyInfoForm.setValue('document', formatDocument(document, documentType));
+    } else {
+      companyInfoForm.setValue('document', document);
+    }
+  };
+
 
   if (!user) {
     return (
@@ -483,7 +563,14 @@ const Settings = () => {
                       <FormItem>
                         <FormLabel>Telefone</FormLabel>
                         <FormControl>
-                          <Input placeholder="(11) 99999-9999" {...field} />
+                          <Input 
+                            placeholder="(11) 99999-9999" 
+                            {...field} 
+                            onChange={(e) => {
+                              const formattedPhone = formatPhone(e.target.value);
+                              field.onChange(formattedPhone);
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -497,9 +584,17 @@ const Settings = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Tipo de Documento</FormLabel>
-                          <FormControl>
-                            <Input placeholder="CPF/CNPJ" {...field} disabled readOnly className="bg-muted" />
-                          </FormControl>
+                          <Select onValueChange={handleDocumentTypeChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o tipo" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="cpf">CPF</SelectItem>
+                              <SelectItem value="cnpj">CNPJ</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -512,7 +607,14 @@ const Settings = () => {
                         <FormItem>
                           <FormLabel>Documento</FormLabel>
                           <FormControl>
-                            <Input placeholder="000.000.000-00" {...field} disabled readOnly className="bg-muted" />
+                            <Input 
+                              placeholder={companyInfoForm.watch('documentType') === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'} 
+                              {...field} 
+                              onChange={(e) => {
+                                handleDocumentChange(e.target.value);
+                                field.onChange(e.target.value);
+                              }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -531,9 +633,17 @@ const Settings = () => {
                         name="cep"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>CEP</FormLabel>
+                            <FormLabel>CEP {loadingCEP && <span className="text-xs text-muted-foreground">(Buscando...)</span>}</FormLabel>
                             <FormControl>
-                              <Input placeholder="00000-000" {...field} />
+                              <Input 
+                                placeholder="00000-000" 
+                                {...field} 
+                                onChange={(e) => {
+                                  handleCEPChange(e.target.value);
+                                  field.onChange(e.target.value);
+                                }}
+                                disabled={loadingCEP}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

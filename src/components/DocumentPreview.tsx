@@ -1,4 +1,4 @@
-import React, { useRef, forwardRef, useImperativeHandle } from "react";
+import React, { useRef, forwardRef, useImperativeHandle, useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyInfo } from "@/contexts/CompanyContext";
+import { formatPhone, formatCEP } from "@/lib/validators";
 
 interface DocumentPreviewProps {
   type: "nf" | "nfce" | "nfs";
@@ -47,6 +50,8 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
   onEmail
 }, ref) => {
   const documentRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { companyInfo } = useCompanyInfo();
 
   // Expor as funções para o componente pai através da ref
   useImperativeHandle(ref, () => ({
@@ -156,7 +161,7 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
       </head>
       <body>
         <div class="header">
-          PAULO CELL
+          ${companyInfo?.companyName || 'PAULO CELL'}
           <br />
           ${docTitle}
         </div>
@@ -255,7 +260,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
             description: "O documento foi enviado para impressão térmica.",
           });
         } catch (printError) {
-          console.error("Erro durante a impressão:", printError);
           toast({
             title: "Erro na impressão",
             description: "Ocorreu um erro durante a impressão. Tente novamente.",
@@ -264,7 +268,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
         }
       }, 500);
     } catch (error) {
-      console.error("Erro ao preparar impressão:", error);
       toast({
         title: "Erro na impressão",
         description: "Não foi possível preparar o documento para impressão. Verifique se sua impressora está configurada.",
@@ -310,7 +313,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
         description: "O documento foi baixado com sucesso.",
       });
     } catch (error) {
-      console.error("Erro ao gerar arquivo:", error);
       toast({
         title: "Erro ao gerar arquivo",
         description: "Não foi possível gerar o arquivo do documento.",
@@ -364,7 +366,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
         description: "Seu cliente de e-mail foi aberto com o documento anexado.",
       });
     } catch (error) {
-      console.error("Erro ao enviar e-mail:", error);
       toast({
         title: "Erro ao enviar e-mail",
         description: "Não foi possível abrir o cliente de e-mail.",
@@ -390,7 +391,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
           }
         ]);
     } catch (error) {
-      console.error("Erro ao registrar evento do documento:", error);
     }
   };
 
@@ -462,7 +462,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
           registerDocumentEvent('shared_other');
         }
       }).catch(err => {
-        console.error('Erro ao compartilhar:', err);
         copyToClipboard(shareContent());
       });
     } else {
@@ -511,7 +510,6 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
       
       return fileUrl;
     } catch (error) {
-      console.error("Erro ao criar arquivo térmico:", error);
       toast({
         title: "Erro ao criar arquivo",
         description: "Não foi possível gerar o arquivo térmico.",
@@ -535,9 +533,16 @@ const DocumentPreview = forwardRef<any, DocumentPreviewProps>(({
         <ScrollArea className="h-[400px]">
           <div className="p-4 flex flex-col gap-3 text-sm">
             <div className="text-center">
-              <p className="font-bold text-base">PAULO CELL</p>
-              <p className="text-xs">CNPJ: 42.054.453/0001-40</p>
-              <p className="text-xs">Rua: Dr. Paulo Ramos, Bairro: Centro S/n</p>
+              <p className="font-bold text-base">{companyInfo?.companyName || 'PAULO CELL'}</p>
+              {companyInfo?.document && (
+                <p className="text-xs">{companyInfo.documentType?.toUpperCase() || 'DOC'}: {companyInfo.document}</p>
+              )}
+              {companyInfo?.address && (companyInfo.address.street || companyInfo.address.city) && (
+                <p className="text-xs">
+                  {companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}
+                  {companyInfo.address.neighborhood ? `, Bairro: ${companyInfo.address.neighborhood}` : ''}
+                </p>
+              )}
               <p className="text-xs">Coelho Neto - MA</p>
             </div>
             

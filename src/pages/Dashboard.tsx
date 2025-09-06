@@ -65,7 +65,6 @@ export default function Dashboard() {
         setLoading(true);
         
         if (!organizationId) {
-          console.warn("ID da organização não encontrado");
           return;
         }
         
@@ -102,11 +101,6 @@ export default function Dashboard() {
           
         if (servicesError) throw servicesError;
         
-        // Debug para identificar problemas
-        console.log('Serviços recuperados:', servicesData?.length || 0);
-        if (servicesData && servicesData.length > 0) {
-          console.log('Exemplo de serviço:', JSON.stringify(servicesData[0]));
-        }
         
         // Calculate service metrics
         const totalServices = servicesData ? servicesData.length : 0;
@@ -151,9 +145,6 @@ export default function Dashboard() {
           });
         }
         
-        console.log(`Serviços processados: ${servicosProcessados}`);
-        console.log(`Serviços com preço: ${servicosComPreco}`);
-        console.log(`Serviços concluídos: ${servicosConcluidos}`);
         
         // Calculate percentage change
         const percentChange = lastMonthRevenue > 0 
@@ -220,7 +211,7 @@ export default function Dashboard() {
         setRevenueChartData(revenueByDay);
         
       } catch (error) {
-        console.error("Erro ao carregar dados do dashboard:", error);
+        // Error loading dashboard data
       } finally {
         setLoading(false);
       }

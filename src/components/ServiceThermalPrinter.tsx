@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { generateTrackingId } from "@/lib/qrcode-utils";
 import { supabase } from "@/integrations/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyInfo } from "@/contexts/CompanyContext";
 
 interface ServiceThermalPrinterProps {
   service: any; // Service data structure
@@ -15,49 +16,8 @@ interface ServiceThermalPrinterProps {
 export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, ServiceThermalPrinterProps>(
   ({ service, children }, ref) => {
   const { user } = useAuth();
-  const [companyInfo, setCompanyInfo] = React.useState<any>(null);
+  const { companyInfo, loading, refreshCompanyInfo } = useCompanyInfo();
 
-  // Buscar informações da empresa para impressão
-  React.useEffect(() => {
-    const fetchCompanyInfo = async () => {
-      if (!user?.id) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('company_name, document, document_type, phone, cep, state, city, neighborhood, street, number, complement')
-          .eq('id', user.id)
-          .single();
-
-        if (error && error.code !== 'PGRST116') {
-          console.error('Erro ao buscar informações da empresa:', error);
-          return;
-        }
-
-        if (data) {
-          setCompanyInfo({
-            companyName: data.company_name,
-            document: data.document,
-            documentType: data.document_type,
-            phone: data.phone,
-            address: {
-              street: data.street,
-              number: data.number,
-              neighborhood: data.neighborhood,
-              city: data.city,
-              state: data.state,
-              cep: data.cep,
-              complement: data.complement,
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao carregar informações da empresa:', error);
-      }
-    };
-
-    fetchCompanyInfo();
-  }, [user?.id]);
 
   // Função para garantir que o serviço tenha um public_tracking_id
   const ensureTrackingId = async (serviceId: string) => {
@@ -65,7 +25,6 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
       try {
         // Gerar um novo tracking ID
         const trackingId = generateTrackingId();
-        console.log('Gerando novo trackingId para serviço:', serviceId, trackingId);
         
         // Buscar definição de público atual primeiro
         let serviceResponse = null;
@@ -78,11 +37,9 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
             .single();
             
           if (!error && data && data.public_tracking_id) {
-            console.log('Serviço já possui tracking ID:', data.public_tracking_id);
             return data.public_tracking_id;
           }
         } catch (checkError) {
-          console.warn('Erro ao verificar tracking ID existente:', checkError);
         }
         
         // Atualizar o serviço no banco de dados
@@ -94,7 +51,6 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
             .select('public_tracking_id');
             
           if (error) {
-            console.error('Erro ao atualizar tracking ID:', error);
             
             // Tentar abordagem alternativa com mutate() para RLS
             try {
@@ -104,26 +60,20 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
               });
               
               if (rpcError) {
-                console.error('Erro ao atualizar via RPC:', rpcError);
               } else {
-                console.log('Atualizado via RPC:', rpcResult);
                 return trackingId;
               }
             } catch (rpcException) {
-              console.error('Exceção ao atualizar via RPC:', rpcException);
             }
             
             return null;
           }
           
-          console.log('Tracking ID atualizado:', data);
           return data?.[0]?.public_tracking_id || trackingId;
         } catch (updateError) {
-          console.error('Exceção ao atualizar tracking ID:', updateError);
           return null;
         }
       } catch (error) {
-        console.error('Erro ao gerar tracking ID:', error);
         return null;
       }
     }
@@ -131,6 +81,14 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
   };
 
   const printServiceReceipt = async () => {
+    // Garantir que as informações da empresa estejam carregadas
+    if (!companyInfo && !loading) {
+      console.log('Tentando recarregar informações da empresa...');
+      await refreshCompanyInfo();
+      // Aguardar um pouco para o estado atualizar
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
     // Garantir que o serviço tenha um public_tracking_id
     const trackingId = await ensureTrackingId(service.id);
     
@@ -187,12 +145,20 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
       try {
         estimatedDate = new Date(service.estimated_completion_date).toLocaleDateString('pt-BR');
       } catch (error) {
-        console.error("Erro ao formatar data de previsão:", error);
       }
     }
     
     // Gerar ID de ordem formatado para exibição
     const orderNumber = service.id ? service.id.substring(0, 8).toUpperCase() : "N/A";
+    
+    // Debug logs
+    console.log('Estado das informações da empresa na impressão:', {
+      companyInfo,
+      loading,
+      hasCompanyName: companyInfo?.companyName,
+      hasPhone: companyInfo?.phone,
+      hasDocument: companyInfo?.document
+    });
     
     // Processar observações para formatação adequada (quebras de linha, remoção de caracteres especiais)
     const formattedObservations = service.observations 
@@ -376,7 +342,7 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
       </head>
       <body>
         <div class="header">
-          ${companyInfo?.companyName ? `
+          ${companyInfo && companyInfo.companyName ? `
           <div class="company-name">${companyInfo.companyName}</div>
           ${companyInfo.document ? `<div class="company-doc">${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}</div>` : ''}
           <div class="company-phone">Tel: ${companyInfo.phone || '(98) 12345-6789'}</div>
@@ -511,7 +477,6 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
             description: "A ordem de serviço está sendo impressa.",
           });
         } catch (error) {
-          console.error("Erro ao imprimir:", error);
           toast({
             variant: "destructive",
             title: "Erro na impressão",

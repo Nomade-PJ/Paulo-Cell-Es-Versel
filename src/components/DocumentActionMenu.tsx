@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   MoreHorizontal, 
   Printer, 
@@ -32,6 +32,8 @@ import { supabase } from "@/integrations/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrganization } from "@/hooks/useOrganization";
 import { sendDocumentNotification } from "@/lib/notifications";
+import { formatPhone, formatCEP } from "@/lib/validators";
+import { useCompanyInfo } from "@/contexts/CompanyContext";
 
 interface DocumentActionMenuProps {
   document: FiscalDocument;
@@ -42,6 +44,8 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const { user } = useAuth();
   const { organizationId } = useOrganization();
+  const { companyInfo, loading, refreshCompanyInfo } = useCompanyInfo();
+  
 
   // Handler para reemissão de documento
   const handleReissue = async () => {
@@ -106,7 +110,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
         .insert([newDocObject]);
       
       if (error) {
-        console.error("Erro ao reemitir documento:", error);
         throw new Error("Não foi possível reemitir o documento. Verifique se todos os campos obrigatórios estão preenchidos.");
       }
 
@@ -134,7 +137,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
             document.id
           );
         } catch (notifError) {
-          console.error("Erro ao enviar notificação:", notifError);
           // Não interrompe o fluxo em caso de erro na notificação
         }
       }
@@ -151,7 +153,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
         description: error.message || "Não foi possível reemitir o documento.",
         variant: "destructive",
       });
-      console.error("Error reissuing document:", error);
     }
   };
 
@@ -183,7 +184,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
         .eq('organization_id', organizationId); // Garantir que o documento pertence à organização do usuário
 
       if (docError) {
-        console.error("Erro ao cancelar documento:", docError);
         throw new Error(`Erro ao atualizar status do documento: ${docError.message}`);
       }
 
@@ -202,7 +202,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
             }
           }]);
       } catch (logError) {
-        console.warn("Erro ao registrar log de cancelamento:", logError);
         // Continuar mesmo com erro no log
       }
 
@@ -216,7 +215,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
             document.id
           );
         } catch (notifError) {
-          console.warn("Erro ao enviar notificação de cancelamento:", notifError);
           // Não interromper o fluxo em caso de erro na notificação
         }
       }
@@ -233,7 +231,6 @@ const DocumentActionMenu = ({ document, onDocumentUpdated }: DocumentActionMenuP
         description: error.message || "Não foi possível cancelar o documento.",
         variant: "destructive",
       });
-      console.error("Error canceling document:", error);
     }
   };
 
@@ -266,7 +263,6 @@ Valor: ${formatCurrency(document.total_value)}
         duration: 3000,
       });
     } catch (error) {
-      console.error('Erro ao copiar para área de transferência:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível copiar os dados',
@@ -314,7 +310,6 @@ Valor: ${formatCurrency(document.total_value)}
               }
             }]);
         } catch (logError) {
-          console.warn("Erro ao registrar log de download:", logError);
         }
       }
       
@@ -323,7 +318,6 @@ Valor: ${formatCurrency(document.total_value)}
         description: `O documento ${document.number} foi baixado.`,
       });
     } catch (error: any) {
-      console.error("Erro ao gerar download:", error);
       toast({
         title: "Erro no download",
         description: "Não foi possível gerar o arquivo para download.",
@@ -402,10 +396,19 @@ Valor: ${formatCurrency(document.total_value)}
       </head>
       <body>
         <div class="center">
-          <div class="logo">PAULO CELL</div>
-          <p class="small">CNPJ: 42.054.453/0001-40</p>
-          <p class="small">Rua: Dr. Paulo Ramos, Bairro: Centro S/n</p>
-          <p class="small">Coelho Neto - MA</p>
+          <div class="logo">${companyInfo?.companyName || 'PAULO CELL'}</div>
+          ${companyInfo?.document ? `<p class="small">${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}</p>` : ''}
+          ${companyInfo?.phone ? `<p class="small">Tel: ${formatPhone(companyInfo.phone)}</p>` : ''}
+          ${companyInfo?.address && (companyInfo.address.street || companyInfo.address.city) ? `
+          <p class="small">
+            ${companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}${companyInfo.address.complement ? ` - ${companyInfo.address.complement}` : ''}
+            ${companyInfo.address.neighborhood ? `, ${companyInfo.address.neighborhood}` : ''}
+          </p>
+          <p class="small">
+            ${companyInfo.address.city && companyInfo.address.state ? `${companyInfo.address.city} - ${companyInfo.address.state}` : ''}
+            ${companyInfo.address.cep ? ` - CEP: ${formatCEP(companyInfo.address.cep)}` : ''}
+          </p>` : `<p class="small">Rua: Dr. Paulo Ramos, Bairro: Centro S/n</p>
+          <p class="small">Coelho Neto - MA</p>`}
         </div>
         
         <div class="divider"></div>
@@ -540,7 +543,6 @@ Valor: ${formatCurrency(document.total_value)}
       try {
         formattedDate = new Date(document.issue_date).toLocaleDateString('pt-BR');
       } catch (err) {
-        console.warn("Erro ao formatar data:", err);
         formattedDate = "Data não disponível";
       }
       
@@ -564,10 +566,11 @@ Detalhes do documento:
 - Valor Total: ${formatCurrency(docValue)}
         
 Atenciosamente,
-Paulo Cell
-CNPJ: 42.054.453/0001-40
-Rua: Dr. Paulo Ramos, Bairro: Centro S/n
-Coelho Neto - MA
+${companyInfo?.companyName || 'Paulo Cell'}
+${companyInfo?.document ? `${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}` : 'CNPJ: 42.054.453/0001-40'}
+${companyInfo?.phone ? `Tel: ${formatPhone(companyInfo.phone)}` : ''}
+${companyInfo?.address && (companyInfo.address.street || companyInfo.address.city) ? `${companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}${companyInfo.address.complement ? ` - ${companyInfo.address.complement}` : ''}${companyInfo.address.neighborhood ? `, ${companyInfo.address.neighborhood}` : ''}
+${companyInfo.address.city && companyInfo.address.state ? `${companyInfo.address.city} - ${companyInfo.address.state}` : 'Coelho Neto - MA'}${companyInfo.address.cep ? ` - CEP: ${formatCEP(companyInfo.address.cep)}` : ''}` : 'Rua: Dr. Paulo Ramos, Bairro: Centro S/n\nCoelho Neto - MA'}
 `;
       
       // Abrir o cliente de e-mail padrão do usuário - usando try/catch para garantir que mesmo se houver erro no log, o email será enviado
@@ -604,15 +607,12 @@ Coelho Neto - MA
             );
           } catch (logError) {
             // Apenas registrar o erro no console, não afetar o usuário
-            console.warn("Erro ao registrar log de email:", logError);
           }
         }
       } catch (mailError) {
-        console.error("Erro ao abrir cliente de email:", mailError);
         throw new Error("Não foi possível abrir seu cliente de email");
       }
     } catch (error: any) {
-      console.error("Erro completo ao enviar e-mail:", error);
       toast({
         title: "Erro ao enviar e-mail",
         description: error.message || "Não foi possível preparar o e-mail. Verifique se o documento possui todas as informações necessárias.",
@@ -669,7 +669,6 @@ Coelho Neto - MA
       
       if (onDocumentUpdated) onDocumentUpdated();
     } catch (error: any) {
-      console.error('Erro ao excluir documento:', error);
       toast({
         variant: "destructive",
         title: "Erro ao excluir",
@@ -681,6 +680,22 @@ Coelho Neto - MA
   // Função para imprimir documento via impressora térmica
   const printDocument = async () => {
     try {
+      // Garantir que as informações da empresa estejam carregadas
+      if (!companyInfo && !loading) {
+        console.log('Tentando recarregar informações da empresa...');
+        await refreshCompanyInfo();
+        // Aguardar um pouco para o estado atualizar
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      console.log('Estado das informações da empresa na impressão de documento:', {
+        companyInfo,
+        loading,
+        hasCompanyName: companyInfo?.companyName,
+        hasPhone: companyInfo?.phone,
+        hasDocument: companyInfo?.document
+      });
+
       // Gerar conteúdo térmico
       const content = generateThermalContent();
       
@@ -717,7 +732,6 @@ Coelho Neto - MA
         description: error.message || "Não foi possível imprimir o documento.",
         variant: "destructive",
       });
-      console.error("Error printing document:", error);
     }
   };
 
@@ -738,7 +752,6 @@ Coelho Neto - MA
           }
         }]);
     } catch (error) {
-      console.error("Erro ao registrar log de impressão:", error);
     }
   };
 
@@ -830,12 +843,15 @@ Coelho Neto - MA
       </head>
       <body>
         <div class="header">
-          PAULO CELL
+          ${companyInfo && companyInfo.companyName ? companyInfo.companyName : 'PAULO CELL'}
         </div>
         <div class="center small">
-          CNPJ: 42.054.453/0001-40<br>
-          Rua: Dr. Paulo Ramos, Centro S/n<br>
-          Coelho Neto - MA
+          ${companyInfo && companyInfo.companyName ? companyInfo.companyName : 'PAULO CELL'}<br>
+          ${companyInfo?.document ? `${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}<br>` : 'CNPJ: 42.054.453/0001-40<br>'}
+          ${companyInfo?.phone ? `Tel: ${formatPhone(companyInfo.phone)}<br>` : ''}
+          ${companyInfo?.address && (companyInfo.address.street || companyInfo.address.city) ? `
+          ${companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}${companyInfo.address.complement ? ` - ${companyInfo.address.complement}` : ''}${companyInfo.address.neighborhood ? `, ${companyInfo.address.neighborhood}` : ''}<br>
+          ${companyInfo.address.city && companyInfo.address.state ? `${companyInfo.address.city} - ${companyInfo.address.state}` : 'Coelho Neto - MA'}${companyInfo.address.cep ? ` - CEP: ${formatCEP(companyInfo.address.cep)}` : ''}` : 'Rua: Dr. Paulo Ramos, Centro S/n<br>\n          Coelho Neto - MA'}
         </div>
         
         <div class="divider"></div>
@@ -911,10 +927,11 @@ Coelho Neto - MA
       
       // Conteúdo otimizado para impressora térmica (largura típica de 80mm/58mm)
       const thermalContent = `
-PAULO CELL
-CNPJ: 42.054.453/0001-40
-Rua: Dr. Paulo Ramos, Centro S/n
-Coelho Neto - MA
+${companyInfo?.companyName || 'PAULO CELL'}
+${companyInfo?.document ? `${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}` : 'CNPJ: 42.054.453/0001-40'}
+${companyInfo?.phone ? `Tel: ${formatPhone(companyInfo.phone)}` : ''}
+${companyInfo?.address && (companyInfo.address.street || companyInfo.address.city) ? `${companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}${companyInfo.address.complement ? ` - ${companyInfo.address.complement}` : ''}${companyInfo.address.neighborhood ? `, ${companyInfo.address.neighborhood}` : ''}
+${companyInfo.address.city && companyInfo.address.state ? `${companyInfo.address.city} - ${companyInfo.address.state}` : 'Coelho Neto - MA'}${companyInfo.address.cep ? ` - CEP: ${formatCEP(companyInfo.address.cep)}` : ''}` : 'Rua: Dr. Paulo Ramos, Centro S/n\nCoelho Neto - MA'}
 
 --------------------------------
 ${docTitle} - ${document.number}
@@ -963,7 +980,6 @@ Obrigado pela preferência!
             }]);
           return;
         } catch (shareError) {
-          console.log('Compartilhamento não suportado ou cancelado pelo usuário', shareError);
           // Fallback para download quando o compartilhamento falha
         }
       }
@@ -986,7 +1002,6 @@ Obrigado pela preferência!
           user_id: user?.id,
         }]);
     } catch (error) {
-      console.error('Erro ao criar arquivo para impressão térmica:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível criar o arquivo para impressão térmica.',
@@ -1057,7 +1072,6 @@ Obrigado pela preferência!
         // Desconectar após a impressão
         await disconnectPrinter();
       } catch (error) {
-        console.error("Erro durante a impressão Bluetooth:", error);
         toast({
           title: "Erro de impressão",
           description: error.message || "Ocorreu um problema ao imprimir. Verifique a conexão Bluetooth.",
@@ -1065,7 +1079,6 @@ Obrigado pela preferência!
         });
       }
     }).catch(error => {
-      console.error("Erro ao carregar módulo Bluetooth:", error);
       toast({
         title: "Erro",
         description: "Não foi possível inicializar o módulo de impressão Bluetooth.",
@@ -1083,7 +1096,7 @@ Obrigado pela preferência!
         ? 'CANCELADO' 
         : 'PENDENTE';
     
-    const header = '===== PAULO CELL =====\n\n';
+    const header = `===== ${companyInfo?.companyName || 'PAULO CELL'} =====\n\n`;
     const title = document.type === 'nf'
       ? 'NOTA FISCAL ELETRÔNICA'
       : document.type === 'nfce'

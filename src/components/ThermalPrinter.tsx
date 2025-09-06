@@ -1,7 +1,11 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FiscalDocument } from "@/types";
 import { toast } from "@/hooks/use-toast";
+import { formatPhone, formatCEP } from "@/lib/validators";
+import { supabase } from "@/integrations/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyInfo } from "@/contexts/CompanyContext";
 
 interface ThermalPrinterProps {
   document: FiscalDocument;
@@ -11,6 +15,10 @@ interface ThermalPrinterProps {
 // Convertendo para forwardRef para resolver o erro de ref
 export const ThermalPrinter = forwardRef<HTMLButtonElement, ThermalPrinterProps>(
   ({ document, children }, ref) => {
+    const { user } = useAuth();
+    const { companyInfo, loading, refreshCompanyInfo } = useCompanyInfo();
+    
+    
     // Formatar para moeda brasileira
     const formatCurrency = (value: number) => {
       return new Intl.NumberFormat('pt-BR', {
@@ -19,7 +27,22 @@ export const ThermalPrinter = forwardRef<HTMLButtonElement, ThermalPrinterProps>
       }).format(value);
     };
 
-    const printFiscalDocument = () => {
+    const printFiscalDocument = async () => {
+      // Garantir que as informações da empresa estejam carregadas
+      if (!companyInfo && !loading) {
+        console.log('Tentando recarregar informações da empresa...');
+        await refreshCompanyInfo();
+        // Aguardar um pouco para o estado atualizar
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      console.log('Estado das informações da empresa na impressão fiscal:', {
+        companyInfo,
+        loading,
+        hasCompanyName: companyInfo?.companyName,
+        hasPhone: companyInfo?.phone,
+        hasDocument: companyInfo?.document
+      });
       // Título do documento com base no tipo
       const documentTitle = document.type === 'nf' 
         ? 'NOTA FISCAL ELETRÔNICA'
@@ -100,7 +123,16 @@ export const ThermalPrinter = forwardRef<HTMLButtonElement, ThermalPrinterProps>
         </head>
         <body>
           <div class="header">
-            PAULO CELL
+            ${companyInfo && companyInfo.companyName ? companyInfo.companyName : 'PAULO CELL'}
+            <br />
+            ${companyInfo?.document ? `${companyInfo.documentType?.toUpperCase() || 'DOC'}: ${companyInfo.document}` : ''}
+            ${companyInfo?.phone ? `<br />Tel: ${formatPhone(companyInfo.phone)}` : ''}
+            ${companyInfo?.address && (companyInfo.address.street || companyInfo.address.city) ? `
+            <br />
+            ${companyInfo.address.street ? `${companyInfo.address.street}${companyInfo.address.number ? `, ${companyInfo.address.number}` : ''}` : ''}${companyInfo.address.complement ? ` - ${companyInfo.address.complement}` : ''}
+            ${companyInfo.address.neighborhood ? `<br />${companyInfo.address.neighborhood}` : ''}
+            ${companyInfo.address.city && companyInfo.address.state ? `<br />${companyInfo.address.city} - ${companyInfo.address.state}` : ''}
+            ${companyInfo.address.cep ? `<br />CEP: ${formatCEP(companyInfo.address.cep)}` : ''}` : ''}
             <br />
             ${documentTitle}
           </div>
@@ -202,7 +234,6 @@ export const ThermalPrinter = forwardRef<HTMLButtonElement, ThermalPrinterProps>
               description: "O documento está sendo impresso.",
             });
           } catch (error) {
-            console.error("Erro ao imprimir:", error);
             toast({
               variant: "destructive",
               title: "Erro na impressão",
@@ -221,7 +252,7 @@ export const ThermalPrinter = forwardRef<HTMLButtonElement, ThermalPrinterProps>
         ref={ref}
         variant="ghost" 
         size="sm"
-        onClick={printFiscalDocument} 
+        onClick={async () => await printFiscalDocument()} 
         className="flex items-center gap-2 w-full justify-start px-2 py-1.5 h-9"
       >
         {children}

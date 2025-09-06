@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { CompanyProvider } from "./contexts/CompanyContext";
 import UserRegistration from "./pages/UserRegistration";
 import DeviceRegistration from "./pages/DeviceRegistration";
 import ServiceRegistration from "./pages/ServiceRegistration";
@@ -42,6 +43,7 @@ const App = () => (
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
+          <CompanyProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -87,6 +89,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </TooltipProvider>
+          </CompanyProvider>
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
