@@ -442,53 +442,79 @@ export const ServiceThermalPrinter = React.forwardRef<HTMLButtonElement, Service
       </html>
     `;
 
-    // Create a hidden iframe for printing
-    const printFrame = window.document.createElement('iframe');
-    printFrame.style.display = 'none';
-    window.document.body.appendChild(printFrame);
+    // Detectar se é dispositivo móvel
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Access the document of the iframe
-    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
-    
-    if (frameDoc) {
-      frameDoc.write(receipt);
-      frameDoc.close();
+    if (isMobile) {
+      // Para dispositivos móveis, abrir em nova janela para melhor compatibilidade
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
       
-      // Wait for content to load before printing
-      printFrame.onload = () => {
-        try {
-          // Configurar impressão para papel térmico
-          const printOptions = {
-            scale: 1,
-            silent: true  // Omitir diálogo de impressão se suportado
-          };
-          
-          printFrame.contentWindow?.print();
-          
-          // Remove the iframe after printing
+      if (printWindow) {
+        printWindow.document.write(receipt);
+        printWindow.document.close();
+        
+        // Aguardar carregamento e imprimir
+        printWindow.onload = () => {
           setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+          }, 500);
+        };
+        
+        toast({
+          title: "Impressão iniciada",
+          description: "A ordem de serviço está sendo impressa.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro na impressão",
+          description: "Não foi possível abrir a janela de impressão. Verifique se pop-ups estão bloqueados.",
+        });
+      }
+    } else {
+      // Para desktop, usar iframe como antes
+      const printFrame = window.document.createElement('iframe');
+      printFrame.style.display = 'none';
+      window.document.body.appendChild(printFrame);
+      
+      // Access the document of the iframe
+      const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
+      
+      if (frameDoc) {
+        frameDoc.write(receipt);
+        frameDoc.close();
+        
+        // Wait for content to load before printing
+        printFrame.onload = () => {
+          try {
+            printFrame.contentWindow?.print();
+            
+            // Remove the iframe after printing
+            setTimeout(() => {
+              if (window.document.body.contains(printFrame)) {
+                window.document.body.removeChild(printFrame);
+              }
+            }, 1000);
+            
+            toast({
+              title: "Impressão iniciada",
+              description: "A ordem de serviço está sendo impressa.",
+            });
+          } catch (error) {
+            toast({
+              variant: "destructive",
+              title: "Erro na impressão",
+              description: "Não foi possível imprimir o comprovante.",
+            });
+            
+            // Certifique-se de remover o iframe mesmo em caso de erro
             if (window.document.body.contains(printFrame)) {
               window.document.body.removeChild(printFrame);
             }
-          }, 1000);
-          
-          toast({
-            title: "Impressão iniciada",
-            description: "A ordem de serviço está sendo impressa.",
-          });
-        } catch (error) {
-          toast({
-            variant: "destructive",
-            title: "Erro na impressão",
-            description: "Não foi possível imprimir o comprovante.",
-          });
-          
-          // Certifique-se de remover o iframe mesmo em caso de erro
-          if (window.document.body.contains(printFrame)) {
-            window.document.body.removeChild(printFrame);
           }
-        }
-      };
+        };
+      }
     }
   };
 

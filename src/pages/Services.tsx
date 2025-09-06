@@ -419,18 +419,53 @@ const Services = () => {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                {getPaymentIcon(service.payment_method)}
-                <span>
-                  {service.payment_method ? 
-                    (service.payment_method === 'pending' ? 
-                      "Selecionar Pagamento" : 
-                      paymentMethods[service.payment_method]
-                    ) : 
-                    "Selecionar Pagamento"
-                  }
-                </span>
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 text-sm hover:bg-muted p-2 rounded-md transition-colors">
+                    {getPaymentIcon(service.payment_method)}
+                    <span>
+                      {service.payment_method ? 
+                        (service.payment_method === 'pending' ? 
+                          "Selecionar Pagamento" : 
+                          paymentMethods[service.payment_method]
+                        ) : 
+                        "Selecionar Pagamento"
+                      }
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-48" align="start">
+                  <div className="py-1">
+                    <div className="px-4 py-2 text-sm font-medium border-b">Cartão</div>
+                    <button
+                      className="w-full text-left px-8 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                      onClick={() => updatePaymentMethod(service.id, 'credit')}
+                    >
+                      Crédito
+                    </button>
+                    <button
+                      className="w-full text-left px-8 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                      onClick={() => updatePaymentMethod(service.id, 'debit')}
+                    >
+                      Débito
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center"
+                      onClick={() => updatePaymentMethod(service.id, 'pix')}
+                    >
+                      <QrCode className="h-4 w-4 mr-2" />
+                      Pix
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center"
+                      onClick={() => updatePaymentMethod(service.id, 'cash')}
+                    >
+                      <Banknote className="h-4 w-4 mr-2" />
+                      Espécie
+                    </button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <ServiceActionsMenu 
                 service={service}
                 onUpdate={fetchServices}
