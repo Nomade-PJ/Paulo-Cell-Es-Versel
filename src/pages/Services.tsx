@@ -75,6 +75,16 @@ const Services = () => {
   const [showCalendarFilter, setShowCalendarFilter] = useState(false);
   const [activePaymentMethod, setActivePaymentMethod] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const ITEMS_PER_PAGE = 20; // Carregar 20 serviços por vez
+
+  // Scroll infinito
+  const [isNearBottom, setIsNearBottom] = useState(false);
 
   // Fetch services on component mount
   useEffect(() => {
@@ -83,10 +93,15 @@ const Services = () => {
     }
   }, [organizationId, orgLoading]);
 
-  // Fetch services from the database
-  const fetchServices = async () => {
+  // Fetch services from the database with pagination
+  const fetchServices = async (page = 1, resetData = true) => {
     try {
-      setLoading(true);
+      if (resetData) {
+        setLoading(true);
+        setCurrentPage(1);
+      } else {
+        setLoadingMore(true);
+      }
       
       if (!organizationId) {
         console.warn("ID da organização não encontrado");
@@ -94,8 +109,13 @@ const Services = () => {
         setFilteredServices([]);
         return;
       }
-      
-      const { data, error } = await supabase
+
+      // Calcular offset para paginação
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      // Buscar dados com paginação
+      const { data, error, count } = await supabase
         .from("services")
         .select(`
           *,
@@ -106,14 +126,27 @@ const Services = () => {
             brand,
             model
           )
-        `)
+        `, { count: 'exact' })
         .eq('organization_id', organizationId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
         
       if (error) throw error;
       
-      setServices(data || []);
-      setFilteredServices(data || []);
+      // Atualizar estados
+      setTotalCount(count || 0);
+      setHasMore((data?.length || 0) === ITEMS_PER_PAGE);
+      
+      if (resetData) {
+        // Primeira carga ou reset
+        setServices(data || []);
+        setCurrentPage(1);
+      } else {
+        // Carregamento adicional (scroll infinito)
+        setServices(prev => [...prev, ...(data || [])]);
+        setCurrentPage(page);
+      }
+      
     } catch (error) {
       console.error("Error fetching services:", error);
       toast({
@@ -123,119 +156,131 @@ const Services = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Função para carregar mais serviços (com filtros aplicados)
+  const loadMoreServices = async () => {
+    if (!hasMore || loadingMore) return;
+    
+    const nextPage = currentPage + 1;
+    await searchServices(searchTerm, statusFilter, paymentFilter, calendarDate, nextPage, false);
+  };
+
+  // Função de busca otimizada usando RPC
+  const searchServices = async (term = "", status = "all", payment = "all", date = null, page = 1, resetData = true) => {
+    try {
+      if (resetData) {
+        setLoading(true);
+        setCurrentPage(1);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      if (!organizationId) {
+        setServices([]);
+        setFilteredServices([]);
+        return;
+      }
+
+      // Calcular offset para paginação
+      const offset = (page - 1) * ITEMS_PER_PAGE;
+
+      // Usar a função RPC para busca
+      const { data, error } = await supabase.rpc('search_services', {
+        search_term: term || null,
+        org_id: organizationId,
+        status_filter: status,
+        payment_filter: payment,
+        date_filter: date ? date.toISOString() : null,
+        page_offset: offset,
+        page_limit: ITEMS_PER_PAGE
+      });
+        
+      if (error) throw error;
+      
+      // Transformar os dados para o formato esperado pelo componente
+      const transformedData = data?.map(service => ({
+        ...service,
+        customers: { name: service.customer_name },
+        devices: { brand: service.device_brand, model: service.device_model }
+      })) || [];
+      
+      // Para calcular o total, fazer uma busca separada apenas com count
+      const { count } = await supabase.rpc('search_services', {
+        search_term: term || null,
+        org_id: organizationId,
+        status_filter: status,
+        payment_filter: payment,
+        date_filter: date ? date.toISOString() : null,
+        page_offset: 0,
+        page_limit: 999999
+      });
+      
+      setTotalCount(count || transformedData.length);
+      setHasMore((transformedData?.length || 0) === ITEMS_PER_PAGE);
+      
+      if (resetData) {
+        // Primeira carga ou reset
+        setServices(transformedData);
+        setCurrentPage(1);
+      } else {
+        // Carregamento adicional (scroll infinito)
+        setServices(prev => [...prev, ...transformedData]);
+        setCurrentPage(page);
+      }
+      
+    } catch (error) {
+      console.error("Error searching services:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro na busca",
+        description: "Não foi possível buscar os serviços.",
+      });
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
   };
   
   // Apply filters when search term, status filter, or calendar date changes
   useEffect(() => {
-    let filtered = services;
-    
-    // Apply search term filter
-    if (searchTerm) {
-      filtered = filtered.filter(service => 
-        service.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        `${service.devices?.brand} ${service.devices?.model}`.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    // Debounce para evitar muitas consultas
+    const timeoutId = setTimeout(() => {
+      searchServices(searchTerm, statusFilter, paymentFilter, calendarDate);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, statusFilter, paymentFilter, calendarDate, organizationId]);
+
+  // Sincronizar filteredServices quando services mudar (para atualizações em tempo real)
+  useEffect(() => {
+    setFilteredServices(services);
+  }, [services]);
+
+  // Scroll infinito - detectar quando usuário está próximo do final
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = window.innerHeight;
+      
+      // Carrega mais quando está a 200px do final
+      const nearBottom = scrollTop + clientHeight >= scrollHeight - 200;
+      setIsNearBottom(nearBottom);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Carregar mais dados automaticamente quando próximo do final
+  useEffect(() => {
+    if (isNearBottom && hasMore && !loading && !loadingMore && filteredServices.length > 0) {
+      loadMoreServices();
     }
-    
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(service => service.status === statusFilter);
-    }
-    
-    // Apply payment filter
-    if (paymentFilter !== "all") {
-      if (paymentFilter === "pending") {
-        // Filtrar serviços com pagamento pendente ou sem método de pagamento definido
-        filtered = filtered.filter(service => 
-          !service.payment_method || service.payment_method === 'pending'
-        );
-      } else if (paymentFilter === "paid") {
-        // Filtrar serviços com qualquer método de pagamento que não seja pendente
-        filtered = filtered.filter(service => 
-          service.payment_method && service.payment_method !== 'pending'
-        );
-      } else if (paymentFilter === "pix") {
-        // Filtrar serviços pagos com Pix
-        filtered = filtered.filter(service => service.payment_method === 'pix');
-      } else if (paymentFilter === "cash") {
-        // Filtrar serviços pagos em Espécie
-        filtered = filtered.filter(service => service.payment_method === 'cash');
-      } else if (paymentFilter === "card") {
-        // Filtrar serviços pagos com cartão (crédito ou débito)
-        filtered = filtered.filter(service => 
-          service.payment_method === 'credit' || service.payment_method === 'debit'
-        );
-      }
-    }
-    
-    // Apply calendar date filter 
-    if (calendarDate && isValid(calendarDate)) {
-      const selectedDate = format(calendarDate, 'yyyy-MM-dd');
-      filtered = filtered.filter(service => {
-        // Determine which date field to use based on status
-        let dateField = 'updated_at';
-        
-        // Função auxiliar para verificar se um campo de data existe
-        const hasField = (field: string) => service[field] && service[field] !== null;
-        
-        // Use specific date fields based on service status or selected status filter
-        if (statusFilter !== 'all') {
-          // Use the date field corresponding to the filtered status
-          switch (statusFilter) {
-            case 'pending':
-              dateField = hasField('pending_date') ? 'pending_date' : 'updated_at';
-              break;
-            case 'in_progress':
-              dateField = hasField('in_progress_date') ? 'in_progress_date' : 'updated_at';
-              break;
-            case 'waiting_parts':
-              dateField = hasField('waiting_parts_date') ? 'waiting_parts_date' : 'updated_at';
-              break;
-            case 'completed':
-              dateField = hasField('completed_date') ? 'completed_date' : 'updated_at';
-              break;
-            case 'delivered':
-              dateField = hasField('delivery_date') ? 'delivery_date' : 'updated_at';
-              break;
-          }
-        } else {
-          // If no status filter, use the date field corresponding to the service's current status
-          switch (service.status) {
-            case 'pending':
-              dateField = hasField('pending_date') ? 'pending_date' : 'updated_at';
-              break;
-            case 'in_progress':
-              dateField = hasField('in_progress_date') ? 'in_progress_date' : 'updated_at';
-              break;
-            case 'waiting_parts':
-              dateField = hasField('waiting_parts_date') ? 'waiting_parts_date' : 'updated_at';
-              break;
-            case 'completed':
-              dateField = hasField('completed_date') ? 'completed_date' : 'updated_at';
-              break;
-            case 'delivered':
-              dateField = hasField('delivery_date') ? 'delivery_date' : 'updated_at';
-              break;
-          }
-        }
-        
-        // Skip if the required date field is still missing
-        if (!service[dateField]) return false;
-        
-        try {
-          const serviceDate = format(new Date(service[dateField]), 'yyyy-MM-dd');
-          return serviceDate === selectedDate;
-        } catch (e) {
-          // If there's an error parsing the date, skip this record
-          console.error(`Error parsing date for service ${service.id}:`, e);
-          return false;
-        }
-      });
-    }
-    
-    setFilteredServices(filtered);
-  }, [searchTerm, statusFilter, services, calendarDate, paymentFilter]);
+  }, [isNearBottom, hasMore, loading, loadingMore, filteredServices.length]);
   
   // Format price as currency
   const formatCurrency = (value) => {
@@ -675,9 +720,26 @@ const Services = () => {
                 )}
               </div>
             ) : (
-              filteredServices.map((service) => (
-                <ServiceCard key={service.id} service={service} />
-              ))
+              <>
+                {filteredServices.map((service) => (
+                  <ServiceCard key={service.id} service={service} />
+                ))}
+                
+                {/* Indicador de Loading Infinito para Mobile */}
+                {loadingMore && (
+                  <div className="flex justify-center items-center p-6">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Carregando mais serviços...</span>
+                  </div>
+                )}
+                
+                {/* Indicador de fim dos resultados */}
+                {!hasMore && filteredServices.length > 0 && (
+                  <div className="text-center p-4 text-muted-foreground text-sm">
+                    Todos os serviços foram carregados ({filteredServices.length} de {totalCount})
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -818,6 +880,21 @@ const Services = () => {
               )}
             </TableBody>
           </Table>
+          
+          {/* Indicador de Loading Infinito para Desktop */}
+          {loadingMore && (
+            <div className="flex justify-center items-center p-6 border-t">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2 text-muted-foreground">Carregando mais serviços...</span>
+            </div>
+          )}
+          
+          {/* Indicador de fim dos resultados */}
+          {!hasMore && filteredServices.length > 0 && (
+            <div className="text-center p-4 border-t text-muted-foreground text-sm">
+              Todos os serviços foram carregados ({filteredServices.length} de {totalCount})
+            </div>
+          )}
         </div>
         )}
       </Card>

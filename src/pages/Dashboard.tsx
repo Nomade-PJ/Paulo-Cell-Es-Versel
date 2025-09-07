@@ -68,113 +68,49 @@ export default function Dashboard() {
           return;
         }
         
-        // Fetch client data
-        const { count: totalClients } = await supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', organizationId);
+        // Usar função RPC otimizada para buscar todas as métricas
+        const { data: analyticsData, error: analyticsError } = await supabase.rpc('get_dashboard_analytics', {
+          org_id: organizationId
+        });
         
-        // Get current date info for month filtering
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        const firstDayOfMonth = new Date(currentYear, currentMonth, 1).toISOString();
+        if (analyticsError) throw analyticsError;
         
-        // Count new clients this month
-        const { count: newClientsThisMonth } = await supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', organizationId)
-          .gte('created_at', firstDayOfMonth);
+        const analytics = analyticsData;
         
-        // Fetch device data
-        const { count: totalDevices } = await supabase
-          .from('devices')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', organizationId);
-          
-        // Get all service data
-        const { data: servicesData, error: servicesError } = await supabase
-          .from('services')
-          .select('*')
-          .eq('organization_id', organizationId);
-          
-        if (servicesError) throw servicesError;
-        
-        
-        // Calculate service metrics
-        const totalServices = servicesData ? servicesData.length : 0;
-        const completedServices = servicesData ? servicesData.filter(service => service.status === 'completed').length : 0;
-        const pendingServices = servicesData ? servicesData.filter(service => service.status === 'pending').length : 0;
-        const servicesPercentage = totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 0;
-        
-        // Calculate revenue metrics
-        let totalRevenue = 0;
-        let thisMonthRevenue = 0;
-        let lastMonthRevenue = 0;
-        
-        const lastMonthStart = new Date(currentYear, currentMonth - 1, 1).toISOString();
-        const twoMonthsAgoStart = new Date(currentYear, currentMonth - 2, 1).toISOString();
-        
-        // Debug da análise de receita
-        let servicosProcessados = 0;
-        let servicosComPreco = 0;
-        let servicosConcluidos = 0;
-        
-        // Se temos alguns serviços, calcular métricas
-        if (servicesData && servicesData.length > 0) {
-          servicesData.forEach(service => {
-            servicosProcessados++;
-            if (service.price) {
-              servicosComPreco++;
-              // Para todos os serviços concluídos ou entregues
-              if (service.status === 'completed' || service.status === 'delivered') {
-                servicosConcluidos++;
-                totalRevenue += service.price;
-                
-                // Verificar se é do mês atual
-                if (service.created_at >= firstDayOfMonth) {
-                  thisMonthRevenue += service.price;
-                }
-                // Verificar se é do mês passado
-                else if (service.created_at >= lastMonthStart && service.created_at < firstDayOfMonth) {
-                  lastMonthRevenue += service.price;
-                }
-              }
-            }
-          });
-        }
-        
-        
-        // Calculate percentage change
-        const percentChange = lastMonthRevenue > 0 
-          ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 
-          : thisMonthRevenue > 0 ? 100 : 0;
-        
-        // Update all state values
+        // Update all state values with data from RPC
         setClientCount({
-          total: totalClients || 0,
-          newThisMonth: newClientsThisMonth || 0
+          total: analytics.clients.total,
+          newThisMonth: analytics.clients.newThisMonth
         });
         
         setDeviceCount({
-          total: totalDevices || 0,
-          needsService: pendingServices
+          total: analytics.devices.total,
+          needsService: analytics.devices.needsService
         });
         
         setServices({
-          total: totalServices,
-          completed: completedServices,
-          pending: pendingServices,
-          percentage: servicesPercentage
+          total: analytics.services.total,
+          completed: analytics.services.completed,
+          pending: analytics.services.pending,
+          percentage: analytics.services.percentage
         });
         
         setRevenue({
-          total: totalRevenue,
-          thisMonth: thisMonthRevenue,
-          lastMonth: lastMonthRevenue,
-          percentChange: percentChange
+          total: analytics.revenue.total,
+          thisMonth: analytics.revenue.thisMonth,
+          lastMonth: analytics.revenue.lastMonth,
+          percentChange: analytics.revenue.percentChange
         });
+
+        // Buscar dados para os gráficos separadamente para manter performance
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('organization_id', organizationId)
+          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .order('created_at', { ascending: true });
+          
+        if (servicesError) throw servicesError;
 
         // Prepare chart data for services by date
         const last7Days = getLast7DaysLabels();

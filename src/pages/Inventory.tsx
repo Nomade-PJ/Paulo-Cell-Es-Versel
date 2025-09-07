@@ -10,13 +10,16 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, 
   Search, 
   FileEdit, 
   Trash2, 
   ShoppingCart,
-  PackageOpen
+  PackageOpen,
+  Wrench,
+  Smartphone
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
@@ -74,6 +77,7 @@ interface InventoryItem {
   selling_price: number;
   quantity: number;
   minimum_stock: number;
+  item_type: 'part' | 'product';
   created_at: string;
   updated_at: string;
 }
@@ -87,19 +91,54 @@ const inventoryFormSchema = z.object({
   sellingPrice: z.number().nonnegative({ message: "Preço de venda não pode ser negativo" }).optional(),
   quantity: z.number().int().min(0, { message: "Quantidade não pode ser negativa" }),
   minimumStock: z.number().int().min(0, { message: "Estoque mínimo não pode ser negativo" }),
+  itemType: z.enum(['part', 'product'], { message: "Selecione o tipo do item" }),
 });
 
 type InventoryFormValues = z.infer<typeof inventoryFormSchema>;
 
-const CATEGORIES = [
-  "bateria",
+// Categorias para Peças (Componentes para Reparo)
+const PART_CATEGORIES = [
   "tela",
-  "cabo",
-  "carregador",
+  "bateria", 
+  "cabo_conector",
   "carcaça",
-  "acessório",
-  "outro"
+  "componente_interno",
+  "ferramenta",
+  "outro_peça"
 ];
+
+// Categorias para Produtos (Itens para Venda)
+const PRODUCT_CATEGORIES = [
+  "capinha_case",
+  "pelicula_protetora",
+  "carregador",
+  "fone_ouvido",
+  "caixa_som",
+  "acessorio_geral",
+  "eletronico",
+  "outro_produto"
+];
+
+// Mapa de labels amigáveis para as categorias
+const CATEGORY_LABELS = {
+  // Peças
+  "tela": "Tela",
+  "bateria": "Bateria",
+  "cabo_conector": "Cabo/Conector",
+  "carcaça": "Carcaça",
+  "componente_interno": "Componente Interno",
+  "ferramenta": "Ferramenta",
+  "outro_peça": "Outro (Peça)",
+  // Produtos
+  "capinha_case": "Capinha/Case",
+  "pelicula_protetora": "Película Protetora",
+  "carregador": "Carregador",
+  "fone_ouvido": "Fone de Ouvido",
+  "caixa_som": "Caixa de Som",
+  "acessorio_geral": "Acessório Geral",
+  "eletronico": "Eletrônico",
+  "outro_produto": "Outro (Produto)"
+};
 
 const Inventory = () => {
   const navigate = useNavigate();
@@ -108,6 +147,7 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<'parts' | 'products'>('parts');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -133,6 +173,7 @@ const Inventory = () => {
       sellingPrice: undefined,
       quantity: 0,
       minimumStock: 0,
+      itemType: 'part',
     },
   });
   
@@ -147,6 +188,7 @@ const Inventory = () => {
       sellingPrice: undefined,
       quantity: 0,
       minimumStock: 0,
+      itemType: 'part',
     },
   });
   
@@ -216,15 +258,31 @@ const Inventory = () => {
     }
   };
   
-  const filteredItems = inventoryItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (item.compatibility && item.compatibility.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    
-    return matchesSearch && matchesCategory;
-  });
+  // Filtrar itens baseado na aba ativa
+  const getFilteredItems = () => {
+    return inventoryItems.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.compatibility && item.compatibility.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+      const matchesTab = activeTab === 'parts' ? item.item_type === 'part' : item.item_type === 'product';
+      
+      return matchesSearch && matchesCategory && matchesTab;
+    });
+  };
+
+  const filteredItems = getFilteredItems();
+  
+  // Função para obter categorias disponíveis baseado na aba ativa
+  const getAvailableCategories = () => {
+    return activeTab === 'parts' ? PART_CATEGORIES : PRODUCT_CATEGORIES;
+  };
+
+  // Função para obter o label da categoria
+  const getCategoryLabel = (category: string) => {
+    return CATEGORY_LABELS[category] || category.charAt(0).toUpperCase() + category.slice(1);
+  };
   
   const handleEdit = (item: InventoryItem) => {
     setCurrentItem(item);
@@ -241,6 +299,7 @@ const Inventory = () => {
       sellingPrice: item.selling_price === 0 ? undefined : item.selling_price,
       quantity: item.quantity,
       minimumStock: item.minimum_stock,
+      itemType: item.item_type,
     });
     setEditItemDialogOpen(true);
   };
@@ -305,12 +364,13 @@ const Inventory = () => {
         name: data.name,
         sku: generatedSku,
         category: data.category,
-        custom_category: data.category === 'outro' ? data.customCategory : null,
+        custom_category: (data.category === 'outro_peça' || data.category === 'outro_produto') ? data.customCategory : null,
         compatibility: data.compatibility || null,
         cost_price: data.costPrice || 0,
         selling_price: data.sellingPrice || 0,
         quantity: data.quantity,
         minimum_stock: data.minimumStock,
+        item_type: data.itemType,
         organization_id: organizationId,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -348,12 +408,13 @@ const Inventory = () => {
       const updatedItem = {
         name: data.name,
         category: data.category,
-        custom_category: data.category === 'outro' ? data.customCategory : null,
+        custom_category: (data.category === 'outro_peça' || data.category === 'outro_produto') ? data.customCategory : null,
         compatibility: data.compatibility || null,
         cost_price: data.costPrice || 0,
         selling_price: data.sellingPrice || 0,
         quantity: data.quantity,
         minimum_stock: data.minimumStock,
+        item_type: data.itemType,
         updated_at: new Date().toISOString()
       };
       
@@ -421,12 +482,14 @@ const Inventory = () => {
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Categoria:</span>
-            <span className="capitalize">
-              {item.category === 'outro' ? item.custom_category || 'Personalizada' : item.category}
-            </span>
-          </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Categoria:</span>
+              <span className="capitalize">
+                {(item.category === 'outro_peça' || item.category === 'outro_produto') 
+                  ? item.custom_category || 'Personalizada' 
+                  : getCategoryLabel(item.category)}
+              </span>
+            </div>
           {item.compatibility && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Compatibilidade:</span>
@@ -476,17 +539,48 @@ const Inventory = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-xl sm:text-2xl font-bold">Inventário</h1>
         <Button 
-          onClick={() => {
+          onClick={async () => {
+            // Reset do formulário com tipo correto baseado na aba ativa
+            form.reset({
+              name: "",
+              category: "",
+              customCategory: "",
+              compatibility: "",
+              costPrice: undefined,
+              sellingPrice: undefined,
+              quantity: 0,
+              minimumStock: 0,
+              itemType: activeTab === 'parts' ? 'part' : 'product'
+            });
+            
+            // Gerar SKU automaticamente
             setGeneratedSku("");
-            form.reset();
+            await generateSku();
+            
             setNewItemDialogOpen(true);
           }}
           className="w-full sm:w-auto"
         >
           <Plus className="mr-2 h-4 w-4" />
-          {isMobile ? 'Novo Item' : 'Novo Item'}
+          {activeTab === 'parts' ? 'Nova Peça' : 'Novo Produto'}
         </Button>
       </div>
+      
+      {/* Sistema de Abas */}
+      <Tabs value={activeTab} onValueChange={(value) => {
+        setActiveTab(value as 'parts' | 'products');
+        setCategoryFilter("all"); // Reset filtro ao trocar aba
+      }}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="parts" className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            Peças
+          </TabsTrigger>
+          <TabsTrigger value="products" className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            Produtos
+          </TabsTrigger>
+        </TabsList>
       
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         <div className="relative flex-1 w-full">
@@ -508,17 +602,18 @@ const Inventory = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas categorias</SelectItem>
-            {CATEGORIES.map((category) => (
+            {getAvailableCategories().map((category) => (
               <SelectItem key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
+                {getCategoryLabel(category)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
       
-      {/* Renderização condicional: Cards no mobile, tabela no desktop */}
-      {isMobile ? (
+      <TabsContent value={activeTab} className="space-y-4">
+        {/* Renderização condicional: Cards no mobile, tabela no desktop */}
+        {isMobile ? (
         <div className="space-y-4">
           {loading ? (
             <div className="flex justify-center py-10">
@@ -603,6 +698,8 @@ const Inventory = () => {
         </Table>
       </Card>
       )}
+      </TabsContent>
+    </Tabs>
 
       <Dialog open={newItemDialogOpen} onOpenChange={setNewItemDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
@@ -639,12 +736,51 @@ const Inventory = () => {
                 
                 <FormField
                   control={form.control}
+                  name="itemType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Item*</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Limpar categoria quando tipo mudar
+                          form.setValue("category", "");
+                        }}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="part">
+                            <div className="flex items-center gap-2">
+                              <Wrench className="h-4 w-4" />
+                              Peça (Componente para Reparo)
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="product">
+                            <div className="flex items-center gap-2">
+                              <ShoppingCart className="h-4 w-4" />
+                              Produto (Item para Venda)
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome do Produto*</FormLabel>
+                      <FormLabel>Nome do Item*</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nome do produto" {...field} />
+                        <Input placeholder="Nome do item" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -655,32 +791,37 @@ const Inventory = () => {
                   <FormField
                     control={form.control}
                     name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Categoria*</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma categoria" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {CATEGORIES.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category.charAt(0).toUpperCase() + category.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const currentItemType = form.watch("itemType");
+                      const availableCategories = currentItemType === 'part' ? PART_CATEGORIES : PRODUCT_CATEGORIES;
+                      
+                      return (
+                        <FormItem>
+                          <FormLabel>Categoria*</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma categoria" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {availableCategories.map((category) => (
+                                <SelectItem key={category} value={category}>
+                                  {getCategoryLabel(category)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   
-                  {form.watch("category") === "outro" && (
+                  {(form.watch("category") === "outro_peça" || form.watch("category") === "outro_produto") && (
                     <FormField
                       control={form.control}
                       name="customCategory"
@@ -836,12 +977,51 @@ const Inventory = () => {
                   
                   <FormField
                     control={editForm.control}
+                    name="itemType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Item*</FormLabel>
+                        <Select
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            // Limpar categoria quando tipo mudar
+                            editForm.setValue("category", "");
+                          }}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="part">
+                              <div className="flex items-center gap-2">
+                                <Wrench className="h-4 w-4" />
+                                Peça (Componente para Reparo)
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="product">
+                              <div className="flex items-center gap-2">
+                                <ShoppingCart className="h-4 w-4" />
+                                Produto (Item para Venda)
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nome do Produto*</FormLabel>
+                        <FormLabel>Nome do Item*</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nome do produto" {...field} />
+                          <Input placeholder="Nome do item" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -852,32 +1032,37 @@ const Inventory = () => {
                     <FormField
                       control={editForm.control}
                       name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Categoria*</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione uma categoria" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {CATEGORIES.map((category) => (
-                                <SelectItem key={category} value={category}>
-                                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const currentItemType = editForm.watch("itemType");
+                        const availableCategories = currentItemType === 'part' ? PART_CATEGORIES : PRODUCT_CATEGORIES;
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>Categoria*</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione uma categoria" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {availableCategories.map((category) => (
+                                  <SelectItem key={category} value={category}>
+                                    {getCategoryLabel(category)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                     
-                    {editForm.watch("category") === "outro" && (
+                    {(editForm.watch("category") === "outro_peça" || editForm.watch("category") === "outro_produto") && (
                       <FormField
                         control={editForm.control}
                         name="customCategory"

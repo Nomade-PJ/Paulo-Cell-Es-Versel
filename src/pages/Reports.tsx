@@ -121,25 +121,36 @@ const Reports = () => {
         return;
       }
       
-      // Calculate date range based on selected period
-      const endDate = new Date();
-      const startDate = subMonths(endDate, parseInt(period));
+      // Usar função RPC otimizada para buscar dados dos gráficos
+      const { data: chartAnalytics, error: chartError } = await supabase.rpc('get_services_chart_data', {
+        org_id: organizationId,
+        months_period: parseInt(period)
+      });
       
-      // Fetch services within the date range and filter by organization_id
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: true });
+      if (chartError) throw chartError;
+      
+      // Processar dados dos gráficos diretamente da RPC
+      if (chartAnalytics) {
+        setServiceData(chartAnalytics.chartData || []);
         
-      if (error) throw error;
-      
-      // Process data for charts
-      processServiceData(data || []);
-      processStatusData(data || []);
-      processServiceTypeData(data || []);
+        // Processar dados de status com tradução
+        const statusDataTranslated = (chartAnalytics.statusData || []).map(item => ({
+          status: getStatusLabel(item.status),
+          count: item.count
+        }));
+        setStatusData(statusDataTranslated);
+        
+        // Processar dados de tipos de serviço com tradução
+        const serviceTypeDataTranslated = (chartAnalytics.serviceTypeData || []).map(item => ({
+          type: getServiceTypeLabel(item.type),
+          count: item.count
+        }));
+        setServiceTypeData(serviceTypeDataTranslated);
+      } else {
+        setServiceData([]);
+        setStatusData([]);
+        setServiceTypeData([]);
+      }
     } catch (error) {
       console.error('Error fetching report data:', error);
       toast({
@@ -532,16 +543,445 @@ const Reports = () => {
   // Função para exportar relatórios em PDF
   const handleExportReport = () => {
     toast({
-      title: 'Exportando relatório',
-      description: 'O relatório será baixado em breve.'
+      title: 'Preparando relatório',
+      description: 'Gerando relatório para impressão...'
     });
     
-    setTimeout(() => {
+    // Criar uma nova janela para impressão
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
       toast({
-        title: 'Relatório exportado',
-        description: 'O relatório foi exportado com sucesso.'
+        title: 'Erro',
+        description: 'Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está desabilitado.',
+        variant: 'destructive'
       });
-    }, 1500);
+      return;
+    }
+    
+    // Obter data atual para o relatório
+    const currentDate = new Date().toLocaleDateString('pt-BR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Gerar conteúdo HTML do relatório
+    const reportContent = generateReportHTML(currentDate);
+    
+    // Configurar o documento para impressão
+    printWindow.document.write(reportContent);
+    printWindow.document.close();
+    
+    // Aguardar o carregamento e imprimir
+    printWindow.onload = () => {
+    setTimeout(() => {
+        printWindow.print();
+      toast({
+          title: 'Relatório gerado',
+          description: 'Use Ctrl+P ou Cmd+P para salvar como PDF ou imprimir.'
+        });
+      }, 500);
+    };
+  };
+  
+  // Função para gerar HTML do relatório
+  const generateReportHTML = (currentDate: string) => {
+    const periodLabel = {
+      '1': 'Último mês',
+      '3': 'Últimos 3 meses', 
+      '6': 'Últimos 6 meses',
+      '12': 'Último ano'
+    }[period] || 'Período personalizado';
+    
+    const activeTabLabel = activeTab === 'services' ? 'Serviços' : 'Documentos Fiscais';
+    
+    return `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Relatório ${activeTabLabel} - Paulo Cell</title>
+        <style>
+          @media print {
+            @page {
+              margin: 2cm;
+              size: A4;
+            }
+            body { -webkit-print-color-adjust: exact; }
+          }
+          
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: white;
+          }
+          
+          .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 30px;
+          }
+          
+          .header h1 {
+            font-size: 28px;
+            color: #1e293b;
+            margin-bottom: 10px;
+          }
+          
+          .header .subtitle {
+            font-size: 16px;
+            color: #64748b;
+          }
+          
+          .info-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+          }
+          
+          .info-item {
+            text-align: center;
+          }
+          
+          .info-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+          }
+          
+          .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+          }
+          
+          .data-section {
+            margin-bottom: 30px;
+          }
+          
+          .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          
+          .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          
+          .data-table th,
+          .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          
+          .data-table th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: #374151;
+          }
+          
+          .data-table tr:hover {
+            background: #f8fafc;
+          }
+          
+          .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+          }
+          
+          .summary-card {
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+          }
+          
+          .card-title {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 8px;
+          }
+          
+          .card-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+          }
+          
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+          }
+          
+          .no-print {
+            display: none;
+          }
+          
+          @media screen {
+            .container {
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Paulo Cell - Sistema de Gerenciamento</h1>
+            <div class="subtitle">Relatório de ${activeTabLabel}</div>
+          </div>
+          
+          <div class="info-section">
+            <div class="info-item">
+              <div class="info-label">Data do Relatório</div>
+              <div class="info-value">${currentDate}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Período</div>
+              <div class="info-value">${periodLabel}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Tipo</div>
+              <div class="info-value">${activeTabLabel}</div>
+            </div>
+          </div>
+          
+          ${generateReportData()}
+          
+          <div class="footer">
+            <p>Relatório gerado automaticamente pelo Sistema Paulo Cell</p>
+            <p>Data de geração: ${new Date().toLocaleString('pt-BR')}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+  
+  // Função para gerar dados específicos do relatório
+  const generateReportData = () => {
+    if (activeTab === 'services') {
+      return generateServicesReportData();
+    } else {
+      return generateDocumentsReportData();
+    }
+  };
+  
+  // Gerar dados do relatório de serviços
+  const generateServicesReportData = () => {
+    const totalRevenue = serviceData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+    const totalServices = statusData.reduce((sum, item) => sum + (item.count || 0), 0);
+    const completedServices = statusData.find(item => item.status === 'Concluído')?.count || 0;
+    
+    return `
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-title">Receita Total</div>
+          <div class="card-value">R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-title">Total de Serviços</div>
+          <div class="card-value">${totalServices}</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-title">Serviços Concluídos</div>
+          <div class="card-value">${completedServices}</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-title">Serviços Entregues</div>
+          <div class="card-value">${deliveredServicesData.count}</div>
+        </div>
+      </div>
+      
+      <div class="data-section">
+        <h2 class="section-title">Receita Mensal</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Receita</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${serviceData.map(item => `
+              <tr>
+                <td>${item.month}</td>
+                <td>R$ ${(item.revenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="data-section">
+        <h2 class="section-title">Distribuição por Status</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Quantidade</th>
+              <th>Percentual</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${statusData.map(item => {
+              const percentage = totalServices > 0 ? ((item.count / totalServices) * 100).toFixed(1) : '0';
+              return `
+                <tr>
+                  <td>${item.status}</td>
+                  <td>${item.count}</td>
+                  <td>${percentage}%</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="data-section">
+        <h2 class="section-title">Tipos de Serviço Mais Comuns</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tipo de Serviço</th>
+              <th>Quantidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${serviceTypeData.slice(0, 10).map(item => `
+              <tr>
+                <td>${item.type}</td>
+                <td>${item.count}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  };
+  
+  // Gerar dados do relatório de documentos
+  const generateDocumentsReportData = () => {
+    const totalRevenue = documentData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+    const totalDocuments = documentTypeData.reduce((sum, item) => sum + (item.count || 0), 0);
+    const authorizedDocs = documentStatusData.find(item => item.status === 'Autorizada')?.count || 0;
+    
+    return `
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="card-title">Receita Total</div>
+          <div class="card-value">R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-title">Total de Documentos</div>
+          <div class="card-value">${totalDocuments}</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-title">Documentos Autorizados</div>
+          <div class="card-value">${authorizedDocs}</div>
+        </div>
+      </div>
+      
+      <div class="data-section">
+        <h2 class="section-title">Receita Mensal por Documentos</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Mês</th>
+              <th>Valor Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${documentData.map(item => `
+              <tr>
+                <td>${item.month}</td>
+                <td>R$ ${(item.revenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="data-section">
+        <h2 class="section-title">Distribuição por Tipo</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tipo de Documento</th>
+              <th>Quantidade</th>
+              <th>Percentual</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${documentTypeData.map(item => {
+              const percentage = totalDocuments > 0 ? ((item.count / totalDocuments) * 100).toFixed(1) : '0';
+              return `
+                <tr>
+                  <td>${item.type}</td>
+                  <td>${item.count}</td>
+                  <td>${percentage}%</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="data-section">
+        <h2 class="section-title">Distribuição por Status</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Quantidade</th>
+              <th>Percentual</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${documentStatusData.map(item => {
+              const percentage = totalDocuments > 0 ? ((item.count / totalDocuments) * 100).toFixed(1) : '0';
+              return `
+                <tr>
+                  <td>${item.status}</td>
+                  <td>${item.count}</td>
+                  <td>${percentage}%</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   };
 
   // Componente para exibir quando não há dados
@@ -594,7 +1034,7 @@ const Reports = () => {
     );
   };
 
-  // Nova função para buscar serviços entregues
+  // Nova função otimizada para buscar serviços entregues usando RPC
   const fetchDeliveredServices = async () => {
     try {
       // Verificar se organizationId existe
@@ -604,43 +1044,17 @@ const Reports = () => {
         return;
       }
       
-      // Calcular o período de filtragem
-      let startDate = new Date();
-      switch (deliveredPeriod) {
-        case '24h':
-          startDate = subHours(new Date(), 24);
-          break;
-        case '7d':
-          startDate = subDays(new Date(), 7);
-          break;
-        case '1m':
-          startDate = subMonths(new Date(), 1);
-          break;
-        case '3m':
-          startDate = subMonths(new Date(), 3);
-          break;
-        default:
-          startDate = subHours(new Date(), 24);
-      }
-      
-      // Buscar serviços entregues no período selecionado
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .eq('organization_id', organizationId)
-        .eq('status', 'delivered')
-        .gte('updated_at', startDate.toISOString())
-        .lte('updated_at', new Date().toISOString());
+      // Usar função RPC otimizada
+      const { data: analyticsData, error } = await supabase.rpc('get_delivered_services_analytics', {
+        org_id: organizationId,
+        time_period: deliveredPeriod
+      });
       
       if (error) throw error;
       
-      // Processar dados para o card de serviços entregues
-      const count = data?.length || 0;
-      const totalValue = data?.reduce((total, service) => total + (service.price || 0), 0) || 0;
-      
       setDeliveredServicesData({
-        count,
-        totalValue
+        count: analyticsData.count,
+        totalValue: analyticsData.totalValue
       });
       
     } catch (error) {
