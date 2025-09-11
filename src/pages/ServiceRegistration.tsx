@@ -351,10 +351,8 @@ const ServiceRegistration = () => {
     try {
       setIsLoading(true);
       
-      // Se o método de pagamento não for "pending", também atualiza o status para "completed"
-      const updateData = method !== 'pending' 
-        ? { payment_method: method, status: "completed" } 
-        : { payment_method: method };
+      // Atualizar apenas o método de pagamento, sem alterar o status
+      const updateData = { payment_method: method };
       
       const { error } = await supabase
         .from("services")
@@ -365,18 +363,10 @@ const ServiceRegistration = () => {
       
       // Atualizar o formulário
       form.setValue("payment_method", method as keyof typeof PaymentMethodTypes);
-      if (method !== 'pending') {
-        form.setValue("status", "completed" as keyof typeof StatusTypes);
-      }
-      
-      // Mensagem personalizada com base na atualização
-      const message = method !== 'pending'
-        ? `Método de pagamento atualizado para ${method} e status alterado para Concluído.`
-        : `Método de pagamento atualizado para ${method}.`;
       
       toast({
         title: "Serviço atualizado",
-        description: message,
+        description: `Método de pagamento atualizado para ${method}.`,
       });
       
     } catch (error) {
