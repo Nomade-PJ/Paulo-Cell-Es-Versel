@@ -49,9 +49,10 @@ import { useCompanyInfo } from '@/contexts/CompanyContext';
 interface ServiceActionsMenuProps {
   service: any;
   onUpdate?: () => void;
+  onDelete?: () => void;
 }
 
-const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
+const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { companyInfo } = useCompanyInfo();
@@ -86,7 +87,7 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
         description: "O serviço foi excluído com sucesso."
       });
       
-      if (onUpdate) onUpdate();
+      if (onDelete) onDelete();
     } catch (error) {
       console.error('Error deleting service:', error);
       toast({
@@ -136,7 +137,7 @@ const ServiceActionsMenu = ({ service, onUpdate }: ServiceActionsMenuProps) => {
         description: `O serviço agora está ${statusNames[newStatus as keyof typeof statusNames]}.`
       });
       
-      // Força a atualização da lista
+      // Atualiza apenas este serviço mantendo o filtro
       if (onUpdate) onUpdate();
     } catch (error: any) {
       console.error('Error updating service status:', error);

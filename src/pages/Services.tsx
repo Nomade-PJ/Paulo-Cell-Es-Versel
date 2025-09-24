@@ -259,6 +259,52 @@ const Services = () => {
     setFilteredServices(services);
   }, [services]);
 
+  // Função para atualizar um serviço específico mantendo o filtro
+  const handleServiceUpdate = async (serviceId: string, newStatus?: string) => {
+    try {
+      // Buscar o serviço atualizado
+      const { data: updatedService, error } = await supabase
+        .from("services")
+        .select(`
+          *,
+          customers (
+            name
+          ),
+          devices (
+            brand,
+            model
+          )
+        `)
+        .eq('id', serviceId)
+        .eq('organization_id', organizationId)
+        .single();
+
+      if (error) throw error;
+
+      // Verificar se o serviço ainda se encaixa no filtro atual
+      const shouldRemoveFromCurrentFilter = () => {
+        if (statusFilter === 'all') return false;
+        return updatedService.status !== statusFilter;
+      };
+
+      if (shouldRemoveFromCurrentFilter()) {
+        // Remover da lista atual se não se encaixar mais no filtro
+        setServices(prev => prev.filter(s => s.id !== serviceId));
+        setFilteredServices(prev => prev.filter(s => s.id !== serviceId));
+        setTotalCount(prev => prev - 1);
+      } else {
+        // Atualizar o item na lista
+        setServices(prev => prev.map(s => s.id === serviceId ? updatedService : s));
+        setFilteredServices(prev => prev.map(s => s.id === serviceId ? updatedService : s));
+      }
+
+    } catch (error) {
+      console.error('Error updating service in list:', error);
+      // Em caso de erro, recarregar a lista mantendo os filtros
+      searchServices(searchTerm, statusFilter, paymentFilter, calendarDate);
+    }
+  };
+
   // Scroll infinito - detectar quando usuário está próximo do final
   useEffect(() => {
     const handleScroll = () => {
@@ -865,7 +911,8 @@ const Services = () => {
                     <TableCell className="text-right">
                       <ServiceActionsMenu 
                         service={service}
-                        onUpdate={fetchServices}
+                        onUpdate={() => handleServiceUpdate(service.id)}
+                        onDelete={fetchServices}
                       />
                     </TableCell>
                   </TableRow>
