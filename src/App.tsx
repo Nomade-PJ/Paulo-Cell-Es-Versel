@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Devices from "./pages/Devices";
 import Services from "./pages/Services";
+import Sales from "./pages/Sales";
+import SalesHistory from "./pages/SalesHistory";
 import Inventory from "./pages/Inventory";
 import Documents from "./pages/Documents";
 import Reports from "./pages/Reports";
@@ -61,7 +63,7 @@ const App = () => (
               <Route path="/status/:serviceId" element={<PublicServiceStatus />} />
               
               <Route path="/dashboard" element={<Layout />}>
-                <Route index element={<Dashboard />} />
+                <Route index element={<Sales />} />
                 <Route path="user-registration" element={<UserRegistration />} />
                 <Route path="user-registration/:id" element={<UserRegistration />} />
                 <Route path="device-registration/new" element={<DeviceRegistration />} />
@@ -72,6 +74,8 @@ const App = () => (
                 <Route path="clients" element={<Clients />} />
                 <Route path="devices" element={<Devices />} />
                 <Route path="services" element={<Services />} />
+                <Route path="sales" element={<Sales />} />
+                <Route path="sales/history" element={<SalesHistory />} />
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="documents" element={<Documents />} />
                 <Route path="reports" element={<Reports />} />
@@ -81,6 +85,7 @@ const App = () => (
               <Route path="/clients" element={<Navigate to="/dashboard/clients" replace />} />
               <Route path="/devices" element={<Navigate to="/dashboard/devices" replace />} />
               <Route path="/services" element={<Navigate to="/dashboard/services" replace />} />
+              <Route path="/sales" element={<Navigate to="/dashboard/sales" replace />} />
               <Route path="/inventory" element={<Navigate to="/dashboard/inventory" replace />} />
               <Route path="/documents" element={<Navigate to="/dashboard/documents" replace />} />
               <Route path="/reports" element={<Navigate to="/dashboard/reports" replace />} />

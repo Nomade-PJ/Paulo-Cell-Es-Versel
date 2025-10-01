@@ -3,7 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { Download, RefreshCw, FileText, Package2, DollarSign } from 'lucide-react';
+import { Download, RefreshCw, FileText, Package2, DollarSign, ShoppingCart } from 'lucide-react';
+import SalesDashboard from '@/components/SalesDashboard';
+import Dashboard from '@/pages/Dashboard';
 import { supabase } from '@/integrations/supabaseClient';
 import { format, subMonths, subDays, subHours, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1101,10 +1103,17 @@ const Reports = () => {
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Análises Gerais</TabsTrigger>
           <TabsTrigger value="services">Serviços</TabsTrigger>
           <TabsTrigger value="documents">Documentos Fiscais</TabsTrigger>
+          <TabsTrigger value="sales">Analytics de Vendas</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          {/* Componente Dashboard completo */}
+          <Dashboard />
+        </TabsContent>
         
         <TabsContent value="services" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1393,6 +1402,11 @@ const Reports = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+        
+        <TabsContent value="sales" className="space-y-6 mt-6">
+          {/* Analytics de Vendas */}
+          <SalesDashboard />
         </TabsContent>
       </Tabs>
     </div>

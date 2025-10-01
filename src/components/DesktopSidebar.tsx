@@ -4,7 +4,8 @@ import {
   LayoutDashboard, 
   Users, 
   Smartphone, 
-  Wrench, 
+  Wrench,
+  ShoppingCart,
   Package, 
   FileText,
   BarChart3,
@@ -29,7 +30,7 @@ type NotificationCounts = {
 
 // Todos os itens de navegação
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", notificationType: null },
+  { icon: ShoppingCart, label: "PDV - Vendas", path: "/dashboard", notificationType: null },
   { icon: Users, label: "Clientes", path: "/dashboard/clients", notificationType: null },
   { icon: Smartphone, label: "Dispositivos", path: "/dashboard/devices", notificationType: "devices" },
   { icon: Wrench, label: "Serviços", path: "/dashboard/services", notificationType: "services" },

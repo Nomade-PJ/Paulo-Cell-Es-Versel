@@ -863,12 +863,13 @@ const Inventory = () => {
                           <Input 
                             type="text" 
                             inputMode="decimal"
-                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            value={field.value === 0 || field.value === undefined || isNaN(field.value) ? "" : field.value}
                             onChange={(e) => {
                               if (e.target.value === "") {
-                                field.onChange(undefined);
+                                field.onChange(0);
                               } else if (e.target.value.match(/^\d*\.?\d*$/)) {
-                                field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value));
+                                const parsedValue = parseFloat(e.target.value);
+                                field.onChange(isNaN(parsedValue) ? 0 : parsedValue);
                               }
                             }}
                           />
@@ -888,12 +889,13 @@ const Inventory = () => {
                           <Input 
                             type="text" 
                             inputMode="decimal"
-                            value={field.value === 0 || field.value === undefined ? "" : field.value}
+                            value={field.value === 0 || field.value === undefined || isNaN(field.value) ? "" : field.value}
                             onChange={(e) => {
                               if (e.target.value === "") {
-                                field.onChange(undefined);
+                                field.onChange(0);
                               } else if (e.target.value.match(/^\d*\.?\d*$/)) {
-                                field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value));
+                                const parsedValue = parseFloat(e.target.value);
+                                field.onChange(isNaN(parsedValue) ? 0 : parsedValue);
                               }
                             }}
                           />
@@ -912,7 +914,7 @@ const Inventory = () => {
                       <FormItem>
                         <FormLabel>Quantidade em Estoque*</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
+                          <Input type="number" {...field} value={field.value || ""} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -926,7 +928,7 @@ const Inventory = () => {
                       <FormItem>
                         <FormLabel>Estoque Mínimo*</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
+                          <Input type="number" {...field} value={field.value || ""} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1109,9 +1111,10 @@ const Inventory = () => {
                                 const value = e.target.value;
                                 setCostPriceInput(value);
                                 if (value === "") {
-                                  field.onChange(undefined);
+                                  field.onChange(0);
                                 } else if (value.match(/^\d*\.?\d*$/)) {
-                                  field.onChange(value === "" ? undefined : parseFloat(value));
+                                  const parsedValue = parseFloat(value);
+                                  field.onChange(isNaN(parsedValue) ? 0 : parsedValue);
                                 }
                               }}
                             />
@@ -1136,9 +1139,10 @@ const Inventory = () => {
                                 const value = e.target.value;
                                 setSellingPriceInput(value);
                                 if (value === "") {
-                                  field.onChange(undefined);
+                                  field.onChange(0);
                                 } else if (value.match(/^\d*\.?\d*$/)) {
-                                  field.onChange(value === "" ? undefined : parseFloat(value));
+                                  const parsedValue = parseFloat(value);
+                                  field.onChange(isNaN(parsedValue) ? 0 : parsedValue);
                                 }
                               }}
                             />
@@ -1157,7 +1161,7 @@ const Inventory = () => {
                         <FormItem>
                           <FormLabel>Quantidade em Estoque*</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
+                            <Input type="number" {...field} value={field.value || ""} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1171,7 +1175,7 @@ const Inventory = () => {
                         <FormItem>
                           <FormLabel>Estoque Mínimo*</FormLabel>
                           <FormControl>
-                            <Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
+                            <Input type="number" {...field} value={field.value || ""} onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

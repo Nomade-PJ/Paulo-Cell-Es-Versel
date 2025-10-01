@@ -124,7 +124,8 @@ const Services = () => {
           ),
           devices (
             brand,
-            model
+            model,
+            password
           )
         `, { count: 'exact' })
         .eq('organization_id', organizationId)
@@ -204,7 +205,11 @@ const Services = () => {
       const transformedData = data?.map(service => ({
         ...service,
         customers: { name: service.customer_name },
-        devices: { brand: service.device_brand, model: service.device_model }
+        devices: { 
+          brand: service.device_brand, 
+          model: service.device_model,
+          password: service.device_password 
+        }
       })) || [];
       
       // Para calcular o total, fazer uma busca separada apenas com count
@@ -272,7 +277,8 @@ const Services = () => {
           ),
           devices (
             brand,
-            model
+            model,
+            password
           )
         `)
         .eq('id', serviceId)

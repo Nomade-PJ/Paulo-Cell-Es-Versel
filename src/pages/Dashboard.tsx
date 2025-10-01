@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ClientCount, DeviceCount, CompletedServices, Revenue } from "@/types";
 import { supabase } from "@/integrations/supabaseClient";
@@ -11,7 +12,7 @@ import {
   DollarSign, 
   TrendingUp, 
   Clock,
-  Calendar 
+  Calendar
 } from "lucide-react";
 
 import {

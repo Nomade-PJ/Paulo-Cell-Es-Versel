@@ -5,6 +5,7 @@ import {
   Users, 
   Smartphone, 
   Wrench, 
+  ShoppingCart,
   MoreHorizontal,
   Package, 
   FileText,
@@ -37,7 +38,7 @@ type NotificationCounts = {
 
 // Itens de navegação prioritários (máximo 5)
 const primaryNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", notificationType: null },
+  { icon: ShoppingCart, label: "PDV", path: "/dashboard", notificationType: null },
   { icon: Users, label: "Clientes", path: "/dashboard/clients", notificationType: null },
   { icon: Smartphone, label: "Dispositivos", path: "/dashboard/devices", notificationType: "devices" },
   { icon: Wrench, label: "Serviços", path: "/dashboard/services", notificationType: "services" }

@@ -4,7 +4,8 @@ import {
   LayoutDashboard, 
   Users, 
   Smartphone, 
-  Wrench, 
+  Wrench,
+  ShoppingCart, 
   Package, 
   Settings, 
   BarChart3, 
@@ -23,16 +24,9 @@ const Sidebar = () => {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   
-  const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-    { icon: Users, label: "Clientes", path: "/dashboard/clients" },
-    { icon: Smartphone, label: "Dispositivos", path: "/dashboard/devices" },
-    { icon: Wrench, label: "Serviços", path: "/dashboard/services" },
-    { icon: Package, label: "Estoque", path: "/dashboard/inventory" },
-    { icon: FileText, label: "Documentos", path: "/dashboard/documents" },
-    { icon: BarChart3, label: "Relatórios", path: "/dashboard/reports" },
-    { icon: Settings, label: "Configurações", path: "/dashboard/settings" },
-  ];
+  // Debug temporário
+  console.log('Sidebar Debug:', { isMobile, windowWidth: window.innerWidth });
+  
 
   // Safely access user properties with fallbacks
   const userEmail = user?.email || '';
@@ -65,25 +59,134 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
-                isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )
-            }
-            onClick={() => isMobile && setOpen(false)}
-            end={item.path === "/dashboard"}
-          >
-            <item.icon className="mr-3 h-5 w-5" aria-hidden="true" />
-            {item.label}
-          </NavLink>
-        ))}
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+          end={true}
+        >
+          <ShoppingCart className="mr-3 h-5 w-5" aria-hidden="true" />
+          PDV - Vendas
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/clients"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <Users className="mr-3 h-5 w-5" aria-hidden="true" />
+          Clientes
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/devices"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <Smartphone className="mr-3 h-5 w-5" aria-hidden="true" />
+          Dispositivos
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/services"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <Wrench className="mr-3 h-5 w-5" aria-hidden="true" />
+          Serviços
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/inventory"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <Package className="mr-3 h-5 w-5" aria-hidden="true" />
+          Estoque
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/documents"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <FileText className="mr-3 h-5 w-5" aria-hidden="true" />
+          Documentos
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/reports"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <BarChart3 className="mr-3 h-5 w-5" aria-hidden="true" />
+          Relatórios
+        </NavLink>
+        
+        <NavLink
+          to="/dashboard/settings"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2.5 text-sm font-medium rounded-md",
+              isActive
+                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )
+          }
+          onClick={() => isMobile && setOpen(false)}
+        >
+          <Settings className="mr-3 h-5 w-5" aria-hidden="true" />
+          Configurações
+        </NavLink>
       </nav>
 
       <div className="px-2 py-4 border-t border-sidebar-border">

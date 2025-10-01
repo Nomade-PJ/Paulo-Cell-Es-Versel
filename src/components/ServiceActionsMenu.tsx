@@ -35,13 +35,16 @@ import {
   CheckCircle,
   Download,
   Send,
-  Bluetooth
+  Bluetooth,
+  Tag
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { useOrganization } from '@/hooks/useOrganization';
 import ServiceThermalPrinter from './ServiceThermalPrinter';
+import ServiceLabelPrinter from './ServiceLabelPrinter';
+import ServiceLabelBluetoothPrinter from './ServiceLabelBluetoothPrinter';
 import BluetoothPrinterComponent from '@/components/BluetoothPrinter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompanyInfo } from '@/contexts/CompanyContext';
@@ -290,6 +293,24 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
           <DropdownMenuItem onClick={handleBluetoothPrint}>
             <Bluetooth className="mr-2 h-4 w-4" />
             <span>Imprimir via Bluetooth</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem asChild>
+            <ServiceLabelPrinter service={service}>
+              <Tag className="mr-2 h-4 w-4" />
+              <span>Imprimir Etiqueta</span>
+            </ServiceLabelPrinter>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem asChild>
+            <ServiceLabelPrinter service={service} directPrint={true}>
+              <Printer className="mr-2 h-4 w-4" />
+              <span>Imprimir Etiqueta Direto</span>
+            </ServiceLabelPrinter>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem asChild>
+            <ServiceLabelBluetoothPrinter service={service} />
           </DropdownMenuItem>
           
           <DropdownMenuSeparator />
