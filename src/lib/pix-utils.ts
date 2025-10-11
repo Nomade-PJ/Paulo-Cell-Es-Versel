@@ -46,10 +46,7 @@ export function generatePixPayload(data: PixData): string {
   // Informação do PIX (26 = Merchant Account Information)
   let merchantAccount = formatEMV('00', 'BR.GOV.BCB.PIX'); // GUI do PIX
   merchantAccount += formatEMV('01', pixKey); // Chave PIX
-  
-  if (description) {
-    merchantAccount += formatEMV('02', description);
-  }
+  // NOTA: Não usar campo 02 (description) - quebra o padrão PIX estático
 
   payload += formatEMV('26', merchantAccount);
 

@@ -46,6 +46,7 @@ import ServiceThermalPrinter from './ServiceThermalPrinter';
 import ServiceLabelPrinter from './ServiceLabelPrinter';
 import ServiceLabelBluetoothPrinter from './ServiceLabelBluetoothPrinter';
 import BluetoothPrinterComponent from '@/components/BluetoothPrinter';
+import PatternLockDisplay from '@/components/PatternLockDisplay';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompanyInfo } from '@/contexts/CompanyContext';
 
@@ -250,11 +251,6 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
     };
   };
 
-  // Disable status options that don't make sense (e.g., can't go backward from delivered)
-  const canChangeToInProgress = service.status !== 'completed' && service.status !== 'delivered';
-  const canChangeToWaitingParts = service.status !== 'completed' && service.status !== 'delivered';
-  const canChangeToCompleted = service.status !== 'delivered';
-
   // Modificar a função do onClick para implementar a impressão Bluetooth diretamente
   const handleBluetoothPrint = () => {
     setShowBluetoothDialog(true);
@@ -312,45 +308,6 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
           <DropdownMenuItem asChild>
             <ServiceLabelBluetoothPrinter service={service} />
           </DropdownMenuItem>
-          
-          <DropdownMenuSeparator />
-          
-          <DropdownMenuLabel>Alterar Status</DropdownMenuLabel>
-          
-          {service.status !== 'pending' && (
-            <DropdownMenuItem onClick={() => handleUpdateStatus('pending')}>
-              <ClipboardList className="mr-2 h-4 w-4" />
-              <span>Marcar como Pendente</span>
-            </DropdownMenuItem>
-          )}
-          
-          {canChangeToInProgress && service.status !== 'in_progress' && (
-            <DropdownMenuItem onClick={() => handleUpdateStatus('in_progress')}>
-              <ClipboardList className="mr-2 h-4 w-4 text-blue-500" />
-              <span>Marcar como Em Andamento</span>
-            </DropdownMenuItem>
-          )}
-          
-          {canChangeToWaitingParts && service.status !== 'waiting_parts' && (
-            <DropdownMenuItem onClick={() => handleUpdateStatus('waiting_parts')}>
-              <ClipboardList className="mr-2 h-4 w-4 text-purple-500" />
-              <span>Marcar como Aguardando Peças</span>
-            </DropdownMenuItem>
-          )}
-          
-          {canChangeToCompleted && service.status !== 'completed' && (
-            <DropdownMenuItem onClick={() => handleUpdateStatus('completed')}>
-              <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-              <span>Marcar como Concluído</span>
-            </DropdownMenuItem>
-          )}
-          
-          {service.status !== 'delivered' && (
-            <DropdownMenuItem onClick={() => handleUpdateStatus('delivered')}>
-              <CheckCircle className="mr-2 h-4 w-4 text-gray-500" />
-              <span>Marcar como Entregue</span>
-            </DropdownMenuItem>
-          )}
           
           <DropdownMenuSeparator />
           
@@ -430,24 +387,154 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
               </div>
             </div>
             
+            {/* Seção de Senha do Dispositivo */}
+            {service.devices && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">🔐 Senha do Dispositivo</h4>
+                {service.devices.password && service.devices.password.trim() !== '' ? (
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 p-4 rounded-lg border-2 border-amber-300 dark:border-amber-700">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      <div className="flex-1">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-amber-900 dark:text-amber-100">Tipo de Senha:</span>
+                            <span className="text-sm px-2 py-1 bg-amber-200 dark:bg-amber-800 rounded-md font-medium">
+                              {service.devices.password_type === 'pattern' ? '🔷 Padrão (Desenho)' :
+                               service.devices.password_type === 'pin' ? '🔢 PIN Numérico' :
+                               service.devices.password_type === 'password' ? '🔤 Senha Alfanumérica' :
+                               service.devices.password_type === 'biometric' ? '👆 Biometria' :
+                               service.devices.password_type === 'none' ? '🔓 Sem Senha' :
+                               service.devices.password_type || 'Não especificado'}
+                            </span>
+                          </div>
+                          
+                          {service.devices.password_type !== 'pattern' && service.devices.password && (
+                            <div className="bg-white dark:bg-gray-800 p-3 rounded border border-amber-200 dark:border-amber-700">
+                              <span className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Senha:</span>
+                              <span className="font-mono font-bold text-lg text-amber-900 dark:text-amber-100 select-all">
+                                {service.devices.password}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {service.devices.password_type === 'pattern' && service.devices.password && (
+                        <div className="flex-shrink-0 w-full md:w-auto flex justify-center md:justify-end">
+                          <PatternLockDisplay pattern={service.devices.password} size={180} />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {service.devices.password_type === 'pattern' && (
+                      <div className="mt-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900 p-2 rounded">
+                        <span className="font-medium">💡 Dica:</span> Os números no padrão indicam a sequência do desenho. 
+                        A grade é numerada de 0 a 8, começando do canto superior esquerdo.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 italic p-4 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                    Nenhuma senha cadastrada para este dispositivo.
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="border-t pt-4">
-              <h4 className="font-medium">Histórico de Status</h4>
-              <div className="mt-2 space-y-1 text-sm">
-                {service.pending_date && (
-                  <p><span className="font-medium">Registrado como Pendente:</span> {formatDate(service.pending_date)}</p>
-                )}
-                {service.in_progress_date && (
-                  <p><span className="font-medium">Em Andamento desde:</span> {formatDate(service.in_progress_date)}</p>
-                )}
-                {service.waiting_parts_date && (
-                  <p><span className="font-medium">Aguardando Peças desde:</span> {formatDate(service.waiting_parts_date)}</p>
-                )}
-                {service.completed_date && (
-                  <p><span className="font-medium">Concluído em:</span> {formatDate(service.completed_date)}</p>
-                )}
-                {service.delivery_date && (
-                  <p><span className="font-medium">Entregue em:</span> {formatDate(service.delivery_date)}</p>
-                )}
+              <h4 className="font-medium mb-3">Histórico de Status</h4>
+              <div className="relative min-h-[100px]">
+                {/* Timeline vertical */}
+                <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
+                
+                <div className="space-y-4">
+                  {service.pending_date && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 ring-4 ring-white dark:ring-gray-800">
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Pendente</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(service.pending_date)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {service.in_progress_date && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500 ring-4 ring-white dark:ring-gray-800">
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Em Andamento</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(service.in_progress_date)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {service.waiting_parts_date && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 ring-4 ring-white dark:ring-gray-800">
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Aguardando Peças</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(service.waiting_parts_date)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {service.completed_date && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 ring-4 ring-white dark:ring-gray-800">
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Concluído</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(service.completed_date)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {service.delivery_date && (
+                    <div className="relative flex items-start gap-3">
+                      <div className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-gray-500 ring-4 ring-white dark:ring-gray-800">
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Entregue</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(service.delivery_date)}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!service.pending_date && !service.in_progress_date && !service.waiting_parts_date && !service.completed_date && !service.delivery_date && (
+                    <div className="relative flex items-start gap-3">
+                      <div className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-white dark:ring-gray-800 ${
+                        service.status === 'pending' ? 'bg-yellow-500' :
+                        service.status === 'in_progress' ? 'bg-blue-500' :
+                        service.status === 'waiting_parts' ? 'bg-purple-500' :
+                        service.status === 'completed' ? 'bg-green-500' :
+                        service.status === 'delivered' ? 'bg-gray-500' :
+                        'bg-gray-400'
+                      }`}>
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      </div>
+                      <div className="flex-1 pt-0.5">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {getStatusName(service.status)} 
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(atual)</span>
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Criado em: {formatDate(service.created_at)}
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 italic">
+                          Histórico de mudanças será registrado a partir da próxima atualização de status
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -484,42 +571,6 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
                 </div>
               </div>
             )}
-            
-            <div className="border-t pt-4">
-              <div className="flex justify-between">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setDetailsDialogOpen(false);
-                    handleEdit();
-                  }}
-                >
-                  <Edit className="mr-2 h-4 w-4" />
-                  Editar Serviço
-                </Button>
-                
-                <div className="flex gap-2">
-                  <ServiceThermalPrinter service={service}>
-                    <Button variant="outline">
-                      <Printer className="mr-2 h-4 w-4" />
-                      Imprimir Comprovante
-                    </Button>
-                  </ServiceThermalPrinter>
-                  
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setDetailsDialogOpen(false);
-                      // Dar um pequeno tempo para o diálogo fechar antes de iniciar a impressão
-                      setTimeout(() => handleBluetoothPrint(), 100);
-                    }}
-                  >
-                    <Bluetooth className="mr-2 h-4 w-4" />
-                    Imprimir via Bluetooth
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

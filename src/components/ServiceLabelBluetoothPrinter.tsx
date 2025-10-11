@@ -7,7 +7,8 @@ interface ServiceLabelBluetoothPrinterProps {
   service: any;
 }
 
-export const ServiceLabelBluetoothPrinter: React.FC<ServiceLabelBluetoothPrinterProps> = ({ service }) => {
+export const ServiceLabelBluetoothPrinter = React.forwardRef<HTMLDivElement, ServiceLabelBluetoothPrinterProps>(
+  ({ service }, ref) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
 
@@ -171,6 +172,8 @@ export const ServiceLabelBluetoothPrinter: React.FC<ServiceLabelBluetoothPrinter
       <span>{isConnecting ? "Conectando..." : "Imprimir Etiqueta Bluetooth"}</span>
     </Button>
   );
-};
+});
+
+ServiceLabelBluetoothPrinter.displayName = "ServiceLabelBluetoothPrinter";
 
 export default ServiceLabelBluetoothPrinter;

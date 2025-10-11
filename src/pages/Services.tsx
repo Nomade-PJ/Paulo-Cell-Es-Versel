@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { PageHeader } from "@/components/PageHeader";
-import { Wrench, Search, Plus, CalendarIcon, X, CreditCard, QrCode, Banknote, Clock, ChevronDown, Check, User, Smartphone, MapPin, DollarSign } from "lucide-react";
+import { Wrench, Search, Plus, CalendarIcon, X, CreditCard, QrCode, Banknote, Clock, ChevronDown, Check, User, Smartphone, MapPin, DollarSign, RefreshCw } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabaseClient";
@@ -125,7 +125,8 @@ const Services = () => {
           devices (
             brand,
             model,
-            password
+            password,
+            password_type
           )
         `, { count: 'exact' })
         .eq('organization_id', organizationId)
@@ -208,7 +209,8 @@ const Services = () => {
         devices: { 
           brand: service.device_brand, 
           model: service.device_model,
-          password: service.device_password 
+          password: service.device_password,
+          password_type: service.device_password_type
         }
       })) || [];
       
@@ -278,7 +280,8 @@ const Services = () => {
           devices (
             brand,
             model,
-            password
+            password,
+            password_type
           )
         `)
         .eq('id', serviceId)
@@ -393,8 +396,88 @@ const Services = () => {
     }
   };
   
-  // Render status badge with appropriate color
-  const renderStatusBadge = (status) => {
+  // Function to update service status
+  const handleStatusChange = async (serviceId: string, currentStatus: string) => {
+    try {
+      if (!organizationId) {
+        throw new Error('ID da organização não encontrado');
+      }
+      
+      // Define a ordem dos status
+      const statusOrder = ['pending', 'in_progress', 'waiting_parts', 'completed', 'delivered'];
+      const currentIndex = statusOrder.indexOf(currentStatus);
+      const nextIndex = (currentIndex + 1) % statusOrder.length;
+      const newStatus = statusOrder[nextIndex];
+      
+      // Usar a função RPC para atualizar o status
+      const { data, error } = await supabase
+        .rpc('update_service_status', {
+          p_service_id: serviceId,
+          p_organization_id: organizationId,
+          p_status: newStatus
+        });
+        
+      if (error) {
+        console.error("Erro detalhado:", error);
+        throw error;
+      }
+      
+      // Verificar se a operação foi bem-sucedida
+      if (!data || data.success === false) {
+        const errorMsg = data?.error || 'Falha ao atualizar o status';
+        console.error("Erro retornado pela função:", errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      toast({
+        title: "Status atualizado",
+        description: `O serviço agora está ${statusNames[newStatus]}.`
+      });
+      
+      // Atualizar o serviço específico
+      handleServiceUpdate(serviceId, newStatus);
+      
+    } catch (error: any) {
+      console.error('Error updating service status:', error);
+      
+      let errorMessage = "Ocorreu um erro ao atualizar o status do serviço.";
+      if (error?.message) {
+        errorMessage += ` Detalhes: ${error.message}`;
+      }
+      if (error?.code) {
+        errorMessage += ` (Código: ${error.code})`;
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar",
+        description: errorMessage
+      });
+    }
+  };
+
+  // Render status badge with appropriate color and click interaction
+  const renderStatusBadge = (status, serviceId?: string, interactive = false) => {
+    if (interactive && serviceId) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                className={`${statusColors[status]} cursor-pointer hover:opacity-80 transition-opacity`}
+                onClick={() => handleStatusChange(serviceId, status)}
+              >
+                {statusNames[status] || status}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Clique para alterar o status</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    
     return (
       <Badge className={statusColors[status]}>
         {statusNames[status] || status}
@@ -480,9 +563,21 @@ const Services = () => {
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <Badge className={`${statusColors[service.status]} text-white text-xs`}>
-                {statusNames[service.status]}
-              </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      className={`${statusColors[service.status]} text-white text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+                      onClick={() => handleStatusChange(service.id, service.status)}
+                    >
+                      {statusNames[service.status]}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Clique para alterar o status</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <span className="text-sm font-medium">
                 {formatCurrency(service.price || 0)}
               </span>
@@ -724,6 +819,26 @@ const Services = () => {
                   <X className="h-4 w-4" />
                 </Button>
               )}
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => searchServices(searchTerm, statusFilter, paymentFilter, calendarDate, 1, true)}
+                      disabled={loading}
+                      title="Atualizar lista"
+                      className="p-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Atualizar lista de serviços</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
           
@@ -856,7 +971,7 @@ const Services = () => {
                         : getServiceLabel(service.service_type)}
                     </TableCell>
                     <TableCell>{formatCurrency(service.price || 0)}</TableCell>
-                    <TableCell>{renderStatusBadge(service.status)}</TableCell>
+                    <TableCell>{renderStatusBadge(service.status, service.id, true)}</TableCell>
                     <TableCell>
                       <Popover>
                         <PopoverTrigger asChild>
