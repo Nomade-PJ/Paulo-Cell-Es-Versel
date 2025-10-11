@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { 
-  Facebook,
   Instagram, 
   Mail, 
   MapPin, 
@@ -49,14 +48,6 @@ const socialLinks = [
     hoverColor: "hover:bg-pink-500/30"
   },
   { 
-    name: "Facebook",
-    icon: Facebook, 
-    url: "https://facebook.com/paulocell", // Mantido temporariamente
-    color: "#1877F2",
-    bgColor: "from-blue-500/20 to-blue-600/20",
-    hoverColor: "hover:bg-blue-500/30"
-  },
-  { 
     name: "Email",
     icon: Mail, 
     url: "mailto:paullo.celullar2020@gmail.com", 
@@ -87,7 +78,7 @@ const infoItems = [
   { 
     icon: Clock, 
     label: "Horário", 
-    value: "Seg-Sex: 9h às 18h | Sáb: 9h às 13h", // Substitua pelo horário correto
+    value: "Seg-Sex: 8h às 18h | Sáb: 8h às 12h",
     color: "#818cf8", // Roxo suave
     action: "#horarios",
     actionText: "Ver detalhes"
@@ -106,12 +97,12 @@ const avaliacoes = [
 
 // Horários detalhados
 const scheduleDetails = [
-  { day: "Segunda-feira", hours: "09:00 - 18:00" },
-  { day: "Terça-feira", hours: "09:00 - 18:00" },
-  { day: "Quarta-feira", hours: "09:00 - 18:00" },
-  { day: "Quinta-feira", hours: "09:00 - 18:00" },
-  { day: "Sexta-feira", hours: "09:00 - 18:00" },
-  { day: "Sábado", hours: "09:00 - 13:00" },
+  { day: "Segunda-feira", hours: "08:00 - 18:00" },
+  { day: "Terça-feira", hours: "08:00 - 18:00" },
+  { day: "Quarta-feira", hours: "08:00 - 18:00" },
+  { day: "Quinta-feira", hours: "08:00 - 18:00" },
+  { day: "Sexta-feira", hours: "08:00 - 18:00" },
+  { day: "Sábado", hours: "08:00 - 12:00" },
   { day: "Domingo", hours: "Fechado" }
 ];
 
@@ -154,11 +145,11 @@ const Contact = () => {
       // Fechado aos domingos
       if (day === 0) return false;
       
-      // Sábado: aberto das 9h às 13h
-      if (day === 6) return hour >= 9 && hour < 13;
+      // Sábado: aberto das 8h às 12h
+      if (day === 6) return hour >= 8 && hour < 12;
       
-      // Segunda a sexta: aberto das 9h às 18h
-      return hour >= 9 && hour < 18;
+      // Segunda a sexta: aberto das 8h às 18h
+      return hour >= 8 && hour < 18;
     };
     
     setIsCurrentlyOpen(checkIfOpen());
