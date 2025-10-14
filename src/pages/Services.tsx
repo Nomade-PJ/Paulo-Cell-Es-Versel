@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { PageHeader } from "@/components/PageHeader";
-import { Wrench, Search, Plus, CalendarIcon, X, CreditCard, QrCode, Banknote, Clock, ChevronDown, Check, User, Smartphone, MapPin, DollarSign, RefreshCw } from "lucide-react";
+import { Wrench, Search, Plus, CalendarIcon, X, CreditCard, QrCode, Banknote, Clock, ChevronDown, Check, User, Smartphone, MapPin, DollarSign, RefreshCw, Pencil, Eye } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabaseClient";
@@ -75,6 +75,9 @@ const Services = () => {
   const [showCalendarFilter, setShowCalendarFilter] = useState(false);
   const [activePaymentMethod, setActivePaymentMethod] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  
+  // Estado para controlar o modal de visualização
+  const [selectedServiceForView, setSelectedServiceForView] = useState<any>(null);
   
   // Paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -689,13 +692,53 @@ const Services = () => {
                 }
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Wrench className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate">
-                {service.service_type === 'other' 
-                  ? service.other_service_description 
-                  : getServiceLabel(service.service_type)}
-              </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 text-sm">
+                <Wrench className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">
+                  {service.service_type === 'other' 
+                    ? service.other_service_description 
+                    : getServiceLabel(service.service_type)}
+                </span>
+              </div>
+              <div className="flex gap-1 ml-6">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-fit px-2 py-0 hover:bg-blue-50 dark:hover:bg-blue-950 text-xs"
+                        onClick={() => setSelectedServiceForView(service)}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Visualizar
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Visualizar detalhes</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-fit px-2 py-0 hover:bg-primary/10 text-xs"
+                        onClick={() => handleEdit(service)}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Editar
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Editar serviço</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <Popover>
@@ -1060,9 +1103,51 @@ const Services = () => {
                       }
                     </TableCell>
                     <TableCell>
-                      {service.service_type === 'other' 
-                        ? service.other_service_description 
-                        : getServiceLabel(service.service_type)}
+                      <div className="flex flex-col gap-1">
+                        <span>
+                          {service.service_type === 'other' 
+                            ? service.other_service_description 
+                            : getServiceLabel(service.service_type)}
+                        </span>
+                        <div className="flex gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-fit px-2 py-0 hover:bg-blue-50 dark:hover:bg-blue-950 text-xs"
+                                  onClick={() => setSelectedServiceForView(service)}
+                                >
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  Visualizar
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Visualizar detalhes</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-fit px-2 py-0 hover:bg-primary/10 text-xs"
+                                  onClick={() => handleEdit(service)}
+                                >
+                                  <Pencil className="h-3 w-3 mr-1" />
+                                  Editar
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Editar serviço</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>{formatCurrency(service.price || 0)}</TableCell>
                     <TableCell>{renderStatusBadge(service.status, service.id, true)}</TableCell>
@@ -1153,6 +1238,19 @@ const Services = () => {
         </div>
         )}
       </Card>
+      
+      {/* ServiceActionsMenu invisível para visualização rápida */}
+      {selectedServiceForView && (
+        <div style={{ display: 'none' }}>
+          <ServiceActionsMenu 
+            service={selectedServiceForView}
+            autoOpenDetails={true}
+            onCloseDetails={() => setSelectedServiceForView(null)}
+            onUpdate={fetchServices}
+            onDelete={fetchServices}
+          />
+        </div>
+      )}
     </div>
   );
 };

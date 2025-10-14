@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,9 +54,11 @@ interface ServiceActionsMenuProps {
   service: any;
   onUpdate?: () => void;
   onDelete?: () => void;
+  autoOpenDetails?: boolean;
+  onCloseDetails?: () => void;
 }
 
-const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuProps) => {
+const ServiceActionsMenu = ({ service, onUpdate, onDelete, autoOpenDetails = false, onCloseDetails }: ServiceActionsMenuProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { companyInfo } = useCompanyInfo();
@@ -64,6 +66,13 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [showBluetoothDialog, setShowBluetoothDialog] = useState(false);
   const { organizationId } = useOrganization();
+  
+  // Abrir automaticamente o dialog de detalhes se autoOpenDetails for true
+  useEffect(() => {
+    if (autoOpenDetails) {
+      setDetailsDialogOpen(true);
+    }
+  }, [autoOpenDetails]);
 
 
   const handleEdit = () => {
@@ -260,7 +269,12 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 p-0" 
+            data-service-id={service.id}
+          >
             <MoreHorizontal className="h-4 w-4" />
             <span className="sr-only">Abrir menu</span>
           </Button>
@@ -268,16 +282,6 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Ações</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          
-          <DropdownMenuItem onClick={handleViewDetails}>
-            <Eye className="mr-2 h-4 w-4" />
-            <span>Visualizar</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={handleEdit}>
-            <Edit className="mr-2 h-4 w-4" />
-            <span>Editar</span>
-          </DropdownMenuItem>
           
           <DropdownMenuItem asChild>
             <ServiceThermalPrinter service={service}>
@@ -340,7 +344,12 @@ const ServiceActionsMenu = ({ service, onUpdate, onDelete }: ServiceActionsMenuP
       </AlertDialog>
 
       {/* Service Details Dialog */}
-      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+      <Dialog open={detailsDialogOpen} onOpenChange={(open) => {
+        setDetailsDialogOpen(open);
+        if (!open && onCloseDetails) {
+          onCloseDetails();
+        }
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Detalhes do Serviço</DialogTitle>
