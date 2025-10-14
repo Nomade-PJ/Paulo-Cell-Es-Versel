@@ -396,18 +396,12 @@ const Services = () => {
     }
   };
   
-  // Function to update service status
-  const handleStatusChange = async (serviceId: string, currentStatus: string) => {
+  // Function to update service status - agora recebe o novo status diretamente
+  const handleStatusChange = async (serviceId: string, newStatus: string) => {
     try {
       if (!organizationId) {
         throw new Error('ID da organização não encontrado');
       }
-      
-      // Define a ordem dos status
-      const statusOrder = ['pending', 'in_progress', 'waiting_parts', 'completed', 'delivered'];
-      const currentIndex = statusOrder.indexOf(currentStatus);
-      const nextIndex = (currentIndex + 1) % statusOrder.length;
-      const newStatus = statusOrder[nextIndex];
       
       // Usar a função RPC para atualizar o status
       const { data, error } = await supabase
@@ -456,25 +450,75 @@ const Services = () => {
     }
   };
 
-  // Render status badge with appropriate color and click interaction
+  // Render status badge with dropdown menu for status selection
   const renderStatusBadge = (status, serviceId?: string, interactive = false) => {
     if (interactive && serviceId) {
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge 
-                className={`${statusColors[status]} cursor-pointer hover:opacity-80 transition-opacity`}
-                onClick={() => handleStatusChange(serviceId, status)}
-              >
-                {statusNames[status] || status}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Clique para alterar o status</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Badge 
+              className={`${statusColors[status]} cursor-pointer hover:opacity-80 transition-opacity`}
+            >
+              {statusNames[status] || status}
+            </Badge>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-48">
+            <DropdownMenuItem 
+              onClick={() => handleStatusChange(serviceId, 'pending')}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className={`w-3 h-3 rounded-full ${statusColors['pending']}`}></div>
+                <span>{statusNames['pending']}</span>
+                {status === 'pending' && <Check className="ml-auto h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem 
+              onClick={() => handleStatusChange(serviceId, 'in_progress')}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className={`w-3 h-3 rounded-full ${statusColors['in_progress']}`}></div>
+                <span>{statusNames['in_progress']}</span>
+                {status === 'in_progress' && <Check className="ml-auto h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem 
+              onClick={() => handleStatusChange(serviceId, 'waiting_parts')}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className={`w-3 h-3 rounded-full ${statusColors['waiting_parts']}`}></div>
+                <span>{statusNames['waiting_parts']}</span>
+                {status === 'waiting_parts' && <Check className="ml-auto h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem 
+              onClick={() => handleStatusChange(serviceId, 'completed')}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className={`w-3 h-3 rounded-full ${statusColors['completed']}`}></div>
+                <span>{statusNames['completed']}</span>
+                {status === 'completed' && <Check className="ml-auto h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem 
+              onClick={() => handleStatusChange(serviceId, 'delivered')}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center gap-2 w-full">
+                <div className={`w-3 h-3 rounded-full ${statusColors['delivered']}`}></div>
+                <span>{statusNames['delivered']}</span>
+                {status === 'delivered' && <Check className="ml-auto h-4 w-4" />}
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     }
     
@@ -563,21 +607,71 @@ const Services = () => {
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge 
-                      className={`${statusColors[service.status]} text-white text-xs cursor-pointer hover:opacity-80 transition-opacity`}
-                      onClick={() => handleStatusChange(service.id, service.status)}
-                    >
-                      {statusNames[service.status]}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Clique para alterar o status</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Badge 
+                    className={`${statusColors[service.status]} text-white text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+                  >
+                    {statusNames[service.status]}
+                  </Badge>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem 
+                    onClick={() => handleStatusChange(service.id, 'pending')}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <div className={`w-3 h-3 rounded-full ${statusColors['pending']}`}></div>
+                      <span>{statusNames['pending']}</span>
+                      {service.status === 'pending' && <Check className="ml-auto h-4 w-4" />}
+                    </div>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => handleStatusChange(service.id, 'in_progress')}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <div className={`w-3 h-3 rounded-full ${statusColors['in_progress']}`}></div>
+                      <span>{statusNames['in_progress']}</span>
+                      {service.status === 'in_progress' && <Check className="ml-auto h-4 w-4" />}
+                    </div>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => handleStatusChange(service.id, 'waiting_parts')}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <div className={`w-3 h-3 rounded-full ${statusColors['waiting_parts']}`}></div>
+                      <span>{statusNames['waiting_parts']}</span>
+                      {service.status === 'waiting_parts' && <Check className="ml-auto h-4 w-4" />}
+                    </div>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => handleStatusChange(service.id, 'completed')}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <div className={`w-3 h-3 rounded-full ${statusColors['completed']}`}></div>
+                      <span>{statusNames['completed']}</span>
+                      {service.status === 'completed' && <Check className="ml-auto h-4 w-4" />}
+                    </div>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => handleStatusChange(service.id, 'delivered')}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <div className={`w-3 h-3 rounded-full ${statusColors['delivered']}`}></div>
+                      <span>{statusNames['delivered']}</span>
+                      {service.status === 'delivered' && <Check className="ml-auto h-4 w-4" />}
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <span className="text-sm font-medium">
                 {formatCurrency(service.price || 0)}
               </span>
