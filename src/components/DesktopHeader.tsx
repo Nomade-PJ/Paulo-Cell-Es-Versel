@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCompanyInfo } from '@/contexts/CompanyContext';
 import { supabase } from '@/integrations/supabaseClient';
 import { toast } from 'sonner';
+import MaintenanceBanner from './MaintenanceBanner';
 
 // Tipo para as notificações
 type Notification = {
@@ -183,7 +184,12 @@ const DesktopHeader = () => {
   };
 
   return (
-    <header className="h-16 bg-background border-b border-border flex items-center justify-end px-6 shadow-sm">
+    <header className="h-16 bg-background border-b border-border flex items-center justify-end px-6 shadow-sm relative">
+      {/* Banner de Manutenção - Posicionado absolutamente */}
+      <div className="absolute top-0 left-0 right-0 z-50">
+        <MaintenanceBanner />
+      </div>
+      
       {/* Right Side Actions */}
       <div className="flex items-center space-x-4">
         {/* Notifications */}
