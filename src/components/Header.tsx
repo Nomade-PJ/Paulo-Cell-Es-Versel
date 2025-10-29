@@ -19,7 +19,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import MaintenanceBanner from "./MaintenanceBanner";
 
 // Tipo para as notificações
 type Notification = {
@@ -210,12 +209,7 @@ const Header = () => {
   const avatarUrl = profile?.avatar_url;
   
   return (
-    <header className="bg-background border-b border-border sticky top-0 z-10 relative">
-      {/* Banner de Manutenção - Posicionado absolutamente */}
-      <div className="absolute top-0 left-0 right-0 z-50">
-        <MaintenanceBanner />
-      </div>
-      
+    <header className="bg-background border-b border-border sticky top-0 z-10">
       <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 md:px-6">
         {/* Título da página atual */}
         <div className="font-semibold text-lg">{getPageTitle()}</div>
